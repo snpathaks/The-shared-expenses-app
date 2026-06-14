@@ -6,6 +6,9 @@ A robust web application designed for tracking, splitting, and managing shared e
 
 <img width="941" height="416" alt="Screenshot 2026-06-15 035342" src="https://github.com/user-attachments/assets/b0d6c87a-c88f-420e-ae5d-691769e8c781" />
 
+<img width="931" height="410" alt="Screenshot 2026-06-15 035406" src="https://github.com/user-attachments/assets/2e0592e4-0926-4d0b-969a-0146c8d786ee" />
+
+
 
 
 ## Prerequisites
