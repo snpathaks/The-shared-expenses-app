@@ -4,6 +4,10 @@
 
 A robust web application designed for tracking, splitting, and managing shared expenses among group members. The backend is built with FastAPI and utilizes PostgreSQL for data storage, complete with an anomaly detection service to flag irregular expense entries.
 
+<img width="941" height="416" alt="Screenshot 2026-06-15 035342" src="https://github.com/user-attachments/assets/b0d6c87a-c88f-420e-ae5d-691769e8c781" />
+
+
+
 ## Prerequisites
 
 - **Python:** 3.9 or higher
