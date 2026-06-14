@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anomalies — Shared Expenses</title>
+  <meta name="description" content="Review and resolve anomalous or suspicious expenses detected during import." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .anomaly-card {
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-card);
+      background: var(--bg-card);
+      padding: var(--space-lg);
+      transition: var(--transition-normal);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .anomaly-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+    }
+
+    .anomaly-card.severity-high::before   { background: var(--brand-danger); }
+    .anomaly-card.severity-medium::before { background: var(--brand-warning); }
+    .anomaly-card.severity-low::before    { background: var(--brand-secondary); }
+
+    .anomaly-card.resolved {
+      opacity: 0.5;
+    }
+
+    .anomaly-header {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-md);
+      margin-bottom: var(--space-md);
+    }
+
+    .anomaly-type-icon {
+      width: 40px; height: 40px;
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .anomaly-info { flex: 1; }
+    .anomaly-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+    .anomaly-desc  { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
+
+    .anomaly-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: var(--space-md);
+      padding-top: var(--space-md);
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .anomaly-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .anomaly-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: var(--space-md);
+      flex-wrap: wrap;
+    }
+
+    /* Filter bar */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      margin-bottom: var(--space-xl);
+      flex-wrap: wrap;
+    }
+
+    /* Summary Cards */
+    .anomaly-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: var(--space-md);
+      margin-bottom: var(--space-xl);
+    }
+
+    .anomaly-count-card {
+      padding: var(--space-md);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-card);
+      background: var(--bg-card);
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .count-icon {
+      width: 44px; height: 44px;
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .count-val { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); }
+    .count-lbl { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="main-content">
+    <main class="page-content fade-in" role="main">
+
+      <div class="page-header">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-md)">
+          <div>
+            <h1 class="page-title">Anomalies</h1>
+            <p class="page-subtitle">Detected issues from imported expense data</p>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" id="resolveAllBtn">Resolve All</button>
+            <button class="btn btn-primary btn-sm" id="rerunBtn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              Re-run Detection
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="anomaly-summary">
+        <div class="anomaly-count-card">
+          <div class="count-icon" style="background:rgba(239,68,68,0.12)">🔴</div>
+          <div>
+            <div class="count-val" style="color:var(--brand-danger)" id="highCount">2</div>
+            <div class="count-lbl">High Severity</div>
+          </div>
+        </div>
+        <div class="anomaly-count-card">
+          <div class="count-icon" style="background:rgba(245,158,11,0.12)">🟡</div>
+          <div>
+            <div class="count-val" style="color:var(--brand-accent)" id="medCount">1</div>
+            <div class="count-lbl">Medium Severity</div>
+          </div>
+        </div>
+        <div class="anomaly-count-card">
+          <div class="count-icon" style="background:rgba(16,185,129,0.12)">🟢</div>
+          <div>
+            <div class="count-val" style="color:var(--brand-secondary)" id="resolvedCount">0</div>
+            <div class="count-lbl">Resolved</div>
+          </div>
+        </div>
+        <div class="anomaly-count-card">
+          <div class="count-icon" style="background:rgba(124,58,237,0.12)">📅</div>
+          <div>
+            <div class="count-val" id="lastScanDate">Today</div>
+            <div class="count-lbl">Last Scan</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="tabs">
+          <button class="tab active" data-severity="all">All (3)</button>
+          <button class="tab" data-severity="high">High (2)</button>
+          <button class="tab" data-severity="medium">Medium (1)</button>
+          <button class="tab" data-severity="low">Resolved</button>
+        </div>
+        <div class="search-wrapper">
+          <span class="search-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </span>
+          <input class="form-input search-input" type="search" id="anomalySearch" placeholder="Search anomalies…" style="min-width:180px" />
+        </div>
+      </div>
+
+      <!-- Anomaly Cards -->
+      <div style="display:flex;flex-direction:column;gap:var(--space-md)" id="anomalyList"></div>
+
+    </main>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script src="_sidebar.js"></script>
+<script>
+  renderShell({ title: 'Anomalies', subtitle: '3 issues need your attention' });
+
+  const anomalies = [
+    {
+      id: 1,
+      severity: 'high',
+      icon: '🔁',
+      iconBg: 'rgba(239,68,68,0.12)',
+      type: 'Duplicate Expense',
+      title: 'Possible duplicate: "Grocery Run"',
+      desc: 'An identical expense "Grocery Run" for $87.40 was added on Jun 1, 2024. Another entry exists from Jun 1 in the same group with the same amount and description.',
+      details: [
+        { label: 'Amount', value: '$87.40' },
+        { label: 'Date', value: 'Jun 1, 2024' },
+        { label: 'Group', value: '🏠 Apartment 4B' },
+        { label: 'Source', value: 'CSV Import' },
+      ],
+      resolved: false,
+    },
+    {
+      id: 2,
+      severity: 'high',
+      icon: '⚠️',
+      iconBg: 'rgba(239,68,68,0.12)',
+      type: 'Unusual Amount',
+      title: 'Unusually large expense detected',
+      desc: 'The expense "Security Deposit" ($2,500.00) is significantly larger than your typical expenses. The average expense in this group is $64. Please verify this is correct.',
+      details: [
+        { label: 'Amount', value: '$2,500.00' },
+        { label: 'Date', value: 'Jun 8, 2024' },
+        { label: 'Group', value: '🏠 Apartment 4B' },
+        { label: 'Paid By', value: 'Unknown' },
+      ],
+      resolved: false,
+    },
+    {
+      id: 3,
+      severity: 'medium',
+      icon: '❓',
+      iconBg: 'rgba(245,158,11,0.12)',
+      type: 'Missing Field',
+      title: 'Expense missing "Paid By" field',
+      desc: 'The expense "Office Supplies" ($23.50) imported on Jun 12 does not have a payer assigned. Expenses without a payer cannot be split. Please assign a payer.',
+      details: [
+        { label: 'Amount', value: '$23.50' },
+        { label: 'Date', value: 'Jun 12, 2024' },
+        { label: 'Group', value: '💼 Office Shared' },
+        { label: 'Paid By', value: '— missing —' },
+      ],
+      resolved: false,
+    },
+  ];
+
+  let resolvedCount = 0;
+
+  function renderAnomalies(filter = 'all', search = '') {
+    const list = document.getElementById('anomalyList');
+    list.innerHTML = '';
+
+    const filtered = anomalies.filter(a => {
+      const matchFilter = filter === 'all' ? !a.resolved :
+                          filter === 'low' ? a.resolved :
+                          a.severity === filter && !a.resolved;
+      const matchSearch = !search || a.title.toLowerCase().includes(search) || a.desc.toLowerCase().includes(search);
+      return matchFilter && matchSearch;
+    });
+
+    if (filtered.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">✅</div>
+          <div class="empty-title">No anomalies found</div>
+          <p class="empty-desc">All expense data looks clean and valid.</p>
+          <a href="import-csv.html" class="btn btn-primary btn-sm">Import More Data</a>
+        </div>
+      `;
+      return;
+    }
+
+    filtered.forEach(a => {
+      const card = document.createElement('div');
+      card.className = `anomaly-card severity-${a.severity}${a.resolved ? ' resolved' : ''}`;
+      card.dataset.id = a.id;
+
+      const severityBadge = a.severity === 'high'
+        ? `<span class="badge badge-danger">High</span>`
+        : a.severity === 'medium'
+          ? `<span class="badge badge-warning">Medium</span>`
+          : `<span class="badge badge-success">Low</span>`;
+
+      card.innerHTML = `
+        <div class="anomaly-header">
+          <div class="anomaly-type-icon" style="background:${a.iconBg}">${a.icon}</div>
+          <div class="anomaly-info">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+              <div class="anomaly-title">${a.title}</div>
+              ${severityBadge}
+              <span class="badge badge-neutral" style="font-size:0.65rem">${a.type}</span>
+              ${a.resolved ? `<span class="badge badge-success">✓ Resolved</span>` : ''}
+            </div>
+            <div class="anomaly-desc">${a.desc}</div>
+          </div>
+        </div>
+
+        <div class="anomaly-meta">
+          ${a.details.map(d => `
+            <div class="anomaly-meta-item">
+              <span style="font-weight:600;color:var(--text-secondary)">${d.label}:</span>
+              <span style="font-family:var(--font-mono);color:var(--text-primary)">${d.value}</span>
+            </div>
+          `).join('')}
+        </div>
+
+        ${!a.resolved ? `
+        <div class="anomaly-actions">
+          <button class="btn btn-sm btn-success resolve-btn" data-id="${a.id}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+            Mark Resolved
+          </button>
+          <button class="btn btn-sm btn-danger dismiss-btn" data-id="${a.id}">Dismiss</button>
+          <button class="btn btn-sm btn-ghost" onclick="ToastSystem.info({title:'View Expense',message:'Opening expense details…'})">View Expense</button>
+        </div>` : ''}
+      `;
+
+      list.appendChild(card);
+    });
+
+    /* Resolve listeners */
+    document.querySelectorAll('.resolve-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = parseInt(btn.dataset.id);
+        const a = anomalies.find(x => x.id === id);
+        if (a) { a.resolved = true; resolvedCount++; }
+        document.getElementById('resolvedCount').textContent = resolvedCount;
+        renderAnomalies(currentFilter, currentSearch);
+        ToastSystem.success({ title: 'Resolved', message: 'Anomaly marked as resolved.' });
+      });
+    });
+
+    document.querySelectorAll('.dismiss-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = parseInt(btn.dataset.id);
+        const idx = anomalies.findIndex(x => x.id === id);
+        if (idx > -1) anomalies.splice(idx, 1);
+        renderAnomalies(currentFilter, currentSearch);
+        ToastSystem.warning({ title: 'Dismissed', message: 'Anomaly dismissed.' });
+      });
+    });
+  }
+
+  let currentFilter = 'all';
+  let currentSearch = '';
+
+  document.querySelectorAll('.tab[data-severity]').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab[data-severity]').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentFilter = tab.dataset.severity;
+      renderAnomalies(currentFilter, currentSearch);
+    });
+  });
+
+  document.getElementById('anomalySearch').addEventListener('input', debounce(e => {
+    currentSearch = e.target.value.toLowerCase();
+    renderAnomalies(currentFilter, currentSearch);
+  }, 300));
+
+  document.getElementById('resolveAllBtn').addEventListener('click', () => {
+    anomalies.forEach(a => { if (!a.resolved) { a.resolved = true; resolvedCount++; } });
+    document.getElementById('resolvedCount').textContent = resolvedCount;
+    renderAnomalies(currentFilter, currentSearch);
+    ToastSystem.success({ title: 'All Resolved', message: 'All anomalies have been marked as resolved.' });
+  });
+
+  document.getElementById('rerunBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('rerunBtn');
+    btn.disabled = true;
+    btn.textContent = 'Scanning…';
+    await new Promise(r => setTimeout(r, 1500));
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Re-run Detection`;
+    ToastSystem.success({ title: 'Scan Complete', message: 'No new anomalies detected.' });
+  });
+
+  renderAnomalies();
+</script>
+</body>
+</html>

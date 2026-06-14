@@ -1,0 +1,41 @@
+anomaly_id,row_number,issue_type,severity,description,detection_logic,recommended_action,user_approval_required
+ANOM-001,5,Duplicate candidate,Warning,"Row 5 appears to duplicate row 4 with normalized description and same date, payer, amount, currency, participants, and split type.","Normalize description by lowercasing/removing punctuation; compare business fingerprint.","Show row 4 and row 5 side by side; approve one, reject one, or keep both with reason.",Yes
+ANOM-002,6,Non-canonical amount format,Warning,"Amount contains comma thousands separator: 1,200.","Numeric field contains comma.","Parse only after user approves normalization from 1,200 to 1200.",Yes
+ANOM-003,8,Inconsistent name,Warning,"Payer priya differs from canonical Priya by case.","Case-insensitive match exists but exact match fails.","Map to Priya after approval; optionally create approved alias.",Yes
+ANOM-004,9,Currency precision violation,Critical,"INR amount 899.995 has more than two decimal places.","Currency INR supports 2 decimal places; value has 3.","Require correction or rejection.",Yes
+ANOM-005,10,Inconsistent name,Warning,"Payer Priya S is not an exact user name.","Exact user match fails; fuzzy match suggests Priya.","User must approve alias mapping to Priya or reject row.",Yes
+ANOM-006,11,Split type alias,Warning,"Split type unequal is not canonical but split details are exact amounts summing to total.","split_type not in canonical enum; exact split details parse and sum to 1500.","Map to exact after approval.",Yes
+ANOM-007,12,Missing payer,Critical,"paid_by is blank.","Required field empty.","Require payer selection or reject row.",Yes
+ANOM-008,13,Settlement recorded as expense,Critical,"Description and notes indicate Rohan paid Aisha back.","Keywords: paid back, settlement; split type blank; one payee in split_with.","Convert to settlement after approval: Rohan pays Aisha INR 5000.",Yes
+ANOM-009,14,Split mismatch,Critical,"Percentages total 110%, not 100%.","Sum percentages in split_details: 30+30+30+20=110.","Require corrected percentages or reject row.",Yes
+ANOM-010,15,Ambiguous date format,Warning,"01/03/2026 can mean 1 Mar or 3 Jan depending locale.","Date format is not ISO and day/month are both <= 12.","Require file-level date format approval.",Yes
+ANOM-011,16,Ambiguous date format,Warning,"03/03/2026 is ambiguous.","Non-ISO date with day/month <= 12.","Require file-level date format approval.",Yes
+ANOM-012,17,Ambiguous date format,Warning,"05/03/2026 is ambiguous.","Non-ISO date with day/month <= 12.","Require file-level date format approval.",Yes
+ANOM-013,18,Ambiguous date format,Warning,"08/03/2026 is ambiguous.","Non-ISO date with day/month <= 12.","Require date format approval.",Yes
+ANOM-014,19,Currency conversion required,Critical,"USD expense cannot be imported into INR group without an approved exchange rate.","currency != group.base_currency and no exchange-rate evidence in row.","Provide/approve USD-INR rate for transaction date.",Yes
+ANOM-015,19,Ambiguous date format,Warning,"09/03/2026 is ambiguous.","Non-ISO date with day/month <= 12.","Approve interpreted date before selecting exchange rate.",Yes
+ANOM-016,20,Currency conversion required,Critical,"USD expense requires exchange rate.","Currency differs from base currency.","Approve USD-INR rate for transaction date.",Yes
+ANOM-017,20,Ambiguous date format,Warning,"10/03/2026 is ambiguous.","Non-ISO date with day/month <= 12.","Approve interpreted date.",Yes
+ANOM-018,21,Split type alias,Warning,"Split type share should map to canonical shares.","Non-canonical split_type with parseable numeric shares.","Map to shares after approval.",Yes
+ANOM-019,21,Ambiguous date format,Warning,"10/03/2026 is ambiguous.","Non-ISO date with day/month <= 12.","Approve interpreted date.",Yes
+ANOM-020,22,Unknown participant,Critical,"Dev's friend Kabir is not one of the known users.","Participant name has no exact, case-insensitive, or approved alias match.","Create user and temporary membership, map to existing user, or reject row.",Yes
+ANOM-021,22,Currency conversion required,Critical,"USD expense requires exchange rate.","Currency differs from base currency.","Approve USD-INR rate.",Yes
+ANOM-022,22,Ambiguous date format,Warning,"11/03/2026 is ambiguous.","Non-ISO date with day/month <= 12.","Approve interpreted date.",Yes
+ANOM-023,23,Duplicate/conflict candidate,Warning,"Row 23 may duplicate row 24 but has different payer and amount.","Same date, similar merchant text, same participants, close amount.","Review both rows; keep one or both with reason.",Yes
+ANOM-024,24,Duplicate/conflict candidate,Warning,"Row note says Aisha also logged this and hers may be wrong.","Notes explicitly indicate duplicate/conflict.","Review against row 23.",Yes
+ANOM-025,25,Negative amount,Critical,"Amount -30 cannot be imported as normal expense.","Amount < 0.","Treat as refund/adjustment with explicit policy or reject.",Yes
+ANOM-026,25,Currency conversion required,Critical,"Negative USD refund still requires exchange-rate policy if imported as adjustment.","Currency differs from base currency.","Approve refund handling and exchange rate.",Yes
+ANOM-027,26,Invalid partial date,Critical,"Mar 14 has no year.","Parser cannot determine full transaction date without external context.","Require user to select full date.",Yes
+ANOM-028,26,Inconsistent name,Warning,"Payer rohan has lowercase and trailing whitespace.","Trim/case-insensitive match exists.","Map to Rohan after approval.",Yes
+ANOM-029,27,Missing currency,Critical,"Currency is blank.","Required currency field empty.","Require currency selection or reject row.",Yes
+ANOM-030,28,Non-canonical amount format,Info,"Amount contains trailing whitespace: 1450 .","Numeric field changes after trim.","Preserve raw value; parse normalized amount only with audit metadata.",Yes
+ANOM-031,30,Zero amount,Warning,"Zero amount likely represents correction placeholder.","Amount == 0.","Reject or import as no-op adjustment only with reason.",Yes
+ANOM-032,31,Split mismatch,Critical,"Percentages total 110%, not 100%.","Sum percentages: 30+30+30+20=110.","Require corrected percentages or reject.",Yes
+ANOM-033,32,Membership event hint,Info,"Notes imply Meera moved out after this expense.","Natural-language note contains moving out.","Create or confirm Meera left_at membership date.",Yes
+ANOM-034,33,Ambiguous date,Critical,"Notes explicitly say the date may be April 5 or May 4.","Non-ISO 04/05/2026 plus note confirms uncertainty.","User must choose exact date before import.",Yes
+ANOM-035,35,Member left before expense,Critical,"Meera appears in split on 2026-04-02 after likely leaving 2026-03-29.","Membership timeline check fails.","Remove Meera from split or adjust membership with approval.",Yes
+ANOM-036,37,Settlement/deposit recorded as expense,Critical,"Sam paid Aisha deposit share; this is a payment, not shared spending.","Keywords: deposit, paid Aisha; split_with only Aisha.","Convert to settlement or deposit transaction after approval.",Yes
+ANOM-037,37,Member joined after expense,Critical,"Sam paid before assumed join date 2026-04-15.","Sam active_on_date false for 2026-04-08.","Confirm Sam join date or reject/convert with explanation.",Yes
+ANOM-038,38,Member joined after expense,Critical,"Sam included on 2026-04-10 before assumed join date.","Split participant/payer active_on_date false.","Confirm earlier join date or remove/reject row.",Yes
+ANOM-039,39,Member joined after expense,Critical,"Sam included on 2026-04-12 before assumed join date.","Split participant active_on_date false.","Confirm earlier join date or remove Sam from split.",Yes
+ANOM-040,41,Split type/details conflict,Warning,"split_type says equal, but split_details contains shares.","Equal split has non-empty share-style split details.","Since all shares are 1, import as equal after approval or canonicalize to shares.",Yes

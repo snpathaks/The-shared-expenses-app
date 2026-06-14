@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Import CSV — Shared Expenses</title>
+  <meta name="description" content="Import expense spreadsheets from CSV or Excel files with column mapping." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .import-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: var(--space-xl);
+      align-items: start;
+    }
+    @media (max-width: 900px) { .import-layout { grid-template-columns: 1fr; } }
+
+    /* Dropzone */
+    .dropzone {
+      border: 2px dashed var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: var(--space-3xl) var(--space-xl);
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition-normal);
+      position: relative;
+      background: transparent;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--brand-primary);
+      background: rgba(124,58,237,0.06);
+    }
+    .dropzone.dragover { transform: scale(1.01); }
+    .dropzone.has-file {
+      border-color: var(--brand-secondary);
+      background: rgba(16,185,129,0.05);
+    }
+
+    .dropzone-input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      width: 72px; height: 72px;
+      border-radius: var(--radius-xl);
+      background: rgba(124,58,237,0.12);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto var(--space-lg);
+      transition: var(--transition-normal);
+    }
+    .dropzone:hover .drop-icon, .dropzone.dragover .drop-icon {
+      background: rgba(124,58,237,0.2);
+      transform: scale(1.05) translateY(-4px);
+    }
+
+    .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+    .drop-sub   { font-size: 0.85rem; color: var(--text-muted); margin-bottom: var(--space-md); }
+
+    .supported-formats {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Preview Table */
+    .preview-section {
+      display: none;
+    }
+    .preview-section.visible { display: block; }
+
+    /* Column Mapping */
+    .mapping-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .mapping-row:last-child { border-bottom: none; }
+    .mapping-csv-col {
+      flex: 1;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+    .mapping-arrow {
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .mapping-select {
+      flex: 1;
+      padding: 7px 10px;
+      font-size: 0.82rem;
+    }
+
+    /* Progress */
+    .import-progress {
+      display: none;
+    }
+    .import-progress.visible { display: block; }
+
+    /* Step-based wizard */
+    .wizard-steps {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: var(--space-xl);
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .wz-step {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .wz-circle {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700;
+      border: 2px solid var(--border-subtle);
+      color: var(--text-muted);
+      flex-shrink: 0;
+      transition: var(--transition-normal);
+    }
+
+    .wz-step.active .wz-circle {
+      background: var(--brand-primary);
+      border-color: var(--brand-primary);
+      color: #fff;
+      box-shadow: 0 0 12px var(--brand-primary-glow);
+    }
+
+    .wz-step.done .wz-circle {
+      background: var(--brand-secondary);
+      border-color: var(--brand-secondary);
+      color: #fff;
+    }
+
+    .wz-label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-left: 6px;
+      white-space: nowrap;
+    }
+    .wz-step.active .wz-label { color: var(--text-primary); }
+    .wz-step.done  .wz-label  { color: var(--brand-secondary); }
+
+    .wz-line {
+      width: 40px; height: 2px;
+      background: var(--border-subtle);
+      margin: 0 8px;
+      flex-shrink: 0;
+    }
+    .wz-step.done ~ .wz-line,
+    .wz-step.done + .wz-step .wz-line { background: var(--brand-secondary); }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="main-content">
+    <main class="page-content fade-in" role="main">
+
+      <div class="page-header">
+        <h1 class="page-title">Import CSV</h1>
+        <p class="page-subtitle">Upload expense spreadsheets and map columns to fields</p>
+      </div>
+
+      <!-- Wizard Steps -->
+      <div class="wizard-steps" id="wizardSteps" aria-label="Import steps">
+        <div class="wz-step active" data-step="1"><div class="wz-circle">1</div><span class="wz-label">Upload File</span></div>
+        <div class="wz-line"></div>
+        <div class="wz-step" data-step="2"><div class="wz-circle">2</div><span class="wz-label">Map Columns</span></div>
+        <div class="wz-line"></div>
+        <div class="wz-step" data-step="3"><div class="wz-circle">3</div><span class="wz-label">Preview Data</span></div>
+        <div class="wz-line"></div>
+        <div class="wz-step" data-step="4"><div class="wz-circle">4</div><span class="wz-label">Import</span></div>
+      </div>
+
+      <div class="import-layout">
+
+        <!-- Main Panel -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-xl)">
+
+          <!-- Step 1: Upload -->
+          <div id="step1Panel">
+            <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Drop CSV file here or click to browse">
+              <input type="file" class="dropzone-input" id="fileInput" accept=".csv,.xlsx,.xls" aria-label="Choose file" />
+              <div class="drop-icon" aria-hidden="true">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="1.8">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </div>
+              <div class="drop-title">Drop your file here</div>
+              <p class="drop-sub">or click to browse your files</p>
+              <div class="supported-formats">
+                <span class="badge badge-neutral">CSV</span>
+                <span class="badge badge-neutral">XLSX</span>
+                <span class="badge badge-neutral">XLS</span>
+                <span class="badge badge-neutral">Max 10MB</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: Column Mapping (hidden) -->
+          <div id="step2Panel" style="display:none">
+            <div class="glass-card" style="padding:var(--space-lg)">
+              <div class="section-header">
+                <div>
+                  <div class="section-title">Map Columns</div>
+                  <div class="section-subtitle" id="fileNameLabel"></div>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="reuploadBtn">Re-upload</button>
+              </div>
+              <div id="mappingRows"></div>
+              <div style="margin-top:var(--space-lg)">
+                <button class="btn btn-primary" id="previewBtn">
+                  Preview Data →
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Preview (hidden) -->
+          <div id="step3Panel" class="preview-section">
+            <div class="glass-card" style="padding:var(--space-lg)">
+              <div class="section-header">
+                <div>
+                  <div class="section-title">Data Preview</div>
+                  <div class="section-subtitle">First 5 rows from your file</div>
+                </div>
+                <span class="badge badge-success" id="rowCountBadge">5 rows</span>
+              </div>
+              <div class="table-container" style="margin-bottom:var(--space-lg)">
+                <table class="data-table" id="previewTable">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Date</th>
+                      <th>Description</th>
+                      <th>Amount</th>
+                      <th>Category</th>
+                      <th>Paid By</th>
+                    </tr>
+                  </thead>
+                  <tbody id="previewBody"></tbody>
+                </table>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-ghost" id="backToMapBtn">← Back</button>
+                <button class="btn btn-primary" id="startImportBtn">
+                  <span class="btn-text">Start Import →</span>
+                  <span class="spinner"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 4: Progress (hidden) -->
+          <div id="step4Panel" class="import-progress">
+            <div class="glass-card" style="padding:var(--space-xl);text-align:center">
+              <div style="font-size:2.5rem;margin-bottom:var(--space-md)" id="importStatusIcon">⏳</div>
+              <div class="section-title" id="importStatusTitle">Importing…</div>
+              <p style="color:var(--text-muted);font-size:0.85rem;margin:8px 0 var(--space-lg)" id="importStatusMsg">Processing your expenses</p>
+              <div class="progress-bar" style="max-width:400px;margin:0 auto var(--space-md)">
+                <div class="progress-fill" id="importProgress" style="width:0%"></div>
+              </div>
+              <div style="font-size:0.8rem;color:var(--text-muted)" id="importPct">0%</div>
+              <div style="margin-top:var(--space-xl)" id="importDoneActions" style="display:none"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right — Tips Panel -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-md)">
+
+          <div class="glass-card" style="padding:var(--space-lg)">
+            <div class="section-title" style="margin-bottom:var(--space-md)">📋 Template</div>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:var(--space-md)">
+              Download our CSV template for easy importing.
+            </p>
+            <button class="btn btn-secondary btn-sm btn-full" id="downloadTemplate">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download Template
+            </button>
+          </div>
+
+          <div class="glass-card" style="padding:var(--space-lg)">
+            <div class="section-title" style="margin-bottom:var(--space-md)">💡 Tips</div>
+            <ul style="display:flex;flex-direction:column;gap:10px">
+              ${[
+                ['Ensure your CSV has a header row with column names.', '1'],
+                ['Date format should be MM/DD/YYYY or YYYY-MM-DD.', '2'],
+                ['Amount should be a number without currency symbols.', '3'],
+                ['Duplicates will be detected automatically.', '4'],
+              ].map(([tip, n]) => `
+                <li style="display:flex;gap:8px;align-items:flex-start">
+                  <span style="font-size:0.65rem;background:rgba(124,58,237,0.2);color:#A78BFA;padding:2px 6px;border-radius:3px;font-weight:700;flex-shrink:0;margin-top:1px">${n}</span>
+                  <span style="font-size:0.8rem;color:var(--text-muted)">${tip}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+
+          <div class="glass-card" style="padding:var(--space-lg)">
+            <div class="section-title" style="margin-bottom:var(--space-md)">📊 Required Columns</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              ${['date','description','amount','paid_by'].map(col =>
+                `<div style="display:flex;align-items:center;gap:8px">
+                  <span style="width:8px;height:8px;border-radius:50%;background:var(--brand-secondary);flex-shrink:0"></span>
+                  <code style="font-size:0.78rem;color:var(--text-accent);font-family:var(--font-mono)">${col}</code>
+                </div>`
+              ).join('')}
+              ${['category','notes','group'].map(col =>
+                `<div style="display:flex;align-items:center;gap:8px">
+                  <span style="width:8px;height:8px;border-radius:50%;background:var(--border-subtle);flex-shrink:0"></span>
+                  <code style="font-size:0.78rem;color:var(--text-muted);font-family:var(--font-mono)">${col} <span style="font-style:italic">(optional)</span></code>
+                </div>`
+              ).join('')}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script src="_sidebar.js"></script>
+<script>
+  renderShell({ title: 'Import CSV', subtitle: 'Upload and map your expense data' });
+
+  /* ── Wizard State ── */
+  let currentStep = 1;
+
+  function setStep(n) {
+    currentStep = n;
+    document.querySelectorAll('.wz-step').forEach((s, i) => {
+      s.classList.remove('active', 'done');
+      if (i + 1 < n)  s.classList.add('done');
+      if (i + 1 === n) s.classList.add('active');
+    });
+  }
+
+  /* ── Dropzone ── */
+  const dropzone  = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+
+  ['dragover','dragenter'].forEach(evt => {
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  });
+  ['dragleave','drop'].forEach(evt => {
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('dragover'); });
+  });
+
+  dropzone.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  dropzone.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') fileInput.click();
+  });
+
+  const sampleCols = ['Date', 'Description', 'Amount', 'Category', 'Paid By', 'Notes'];
+  const targetFields = ['date', 'description', 'amount', 'category', 'paid_by', 'notes', '-- skip --'];
+
+  function handleFile(file) {
+    if (!file.name.match(/\.(csv|xlsx|xls)$/i)) {
+      ToastSystem.error({ title: 'Invalid File', message: 'Please upload a CSV or Excel file.' });
+      return;
+    }
+
+    dropzone.classList.add('has-file');
+    setStep(2);
+
+    document.getElementById('step1Panel').style.display = 'none';
+    const step2 = document.getElementById('step2Panel');
+    step2.style.display = 'block';
+    document.getElementById('fileNameLabel').textContent = `${file.name} — ${(file.size / 1024).toFixed(1)} KB`;
+
+    /* Render mapping rows */
+    const container = document.getElementById('mappingRows');
+    container.innerHTML = '';
+    sampleCols.forEach((col, i) => {
+      const row = document.createElement('div');
+      row.className = 'mapping-row';
+      row.innerHTML = `
+        <div class="mapping-csv-col">${col}</div>
+        <div class="mapping-arrow">→</div>
+        <select class="form-input form-select mapping-select">
+          ${targetFields.map(f =>
+            `<option value="${f}" ${f === (targetFields[i] || '--') ? 'selected' : ''}>${f}</option>`
+          ).join('')}
+        </select>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  document.getElementById('reuploadBtn')?.addEventListener('click', () => {
+    document.getElementById('step1Panel').style.display = 'block';
+    document.getElementById('step2Panel').style.display = 'none';
+    document.getElementById('step3Panel').classList.remove('visible');
+    dropzone.classList.remove('has-file');
+    fileInput.value = '';
+    setStep(1);
+  });
+
+  /* ── Preview ── */
+  document.getElementById('previewBtn')?.addEventListener('click', () => {
+    setStep(3);
+    document.getElementById('step2Panel').style.display = 'none';
+    document.getElementById('step3Panel').classList.add('visible');
+
+    const sampleData = [
+      ['06/01/2024', 'Grocery Run',   '87.40', 'Groceries',  'Alex Kim'],
+      ['06/03/2024', 'Electric Bill', '132.00','Utilities',  'Sam Rivera'],
+      ['06/05/2024', 'Netflix',       '15.99', 'Entertainment','You'],
+      ['06/07/2024', 'Dinner Out',    '64.50', 'Food',       'Maya Patel'],
+      ['06/10/2024', 'Fuel',          '48.20', 'Transport',  'Tom Walsh'],
+    ];
+
+    document.getElementById('rowCountBadge').textContent = `${sampleData.length} rows`;
+
+    const tbody = document.getElementById('previewBody');
+    tbody.innerHTML = '';
+    sampleData.forEach((row, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td style="color:var(--text-muted)">${i+1}</td>` +
+        row.map((cell, ci) =>
+          `<td style="${ci === 2 ? 'font-family:var(--font-mono);font-weight:600;color:var(--text-primary)' : ''}">${ci === 2 ? '$' + cell : cell}</td>`
+        ).join('');
+      tbody.appendChild(tr);
+    });
+  });
+
+  document.getElementById('backToMapBtn')?.addEventListener('click', () => {
+    setStep(2);
+    document.getElementById('step3Panel').classList.remove('visible');
+    document.getElementById('step2Panel').style.display = 'block';
+  });
+
+  /* ── Import ── */
+  document.getElementById('startImportBtn')?.addEventListener('click', async () => {
+    setStep(4);
+    document.getElementById('step3Panel').classList.remove('visible');
+    const step4 = document.getElementById('step4Panel');
+    step4.classList.add('visible');
+
+    const progressBar = document.getElementById('importProgress');
+    const pctEl       = document.getElementById('importPct');
+    let pct = 0;
+
+    const interval = setInterval(() => {
+      pct += Math.random() * 8;
+      if (pct > 100) pct = 100;
+      progressBar.style.width = pct + '%';
+      pctEl.textContent = Math.floor(pct) + '%';
+
+      if (pct >= 100) {
+        clearInterval(interval);
+        document.getElementById('importStatusIcon').textContent = '✅';
+        document.getElementById('importStatusTitle').textContent = 'Import Complete!';
+        document.getElementById('importStatusMsg').textContent = '5 expenses imported successfully. 0 duplicates found.';
+        document.getElementById('importDoneActions').innerHTML = `
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+            <a href="import-report.html" class="btn btn-primary">View Report</a>
+            <a href="anomalies.html" class="btn btn-ghost">Check Anomalies</a>
+            <a href="dashboard.html" class="btn btn-ghost">Dashboard</a>
+          </div>
+        `;
+        document.getElementById('importDoneActions').style.display = 'block';
+        ToastSystem.success({ title: 'Import Successful!', message: '5 expenses imported into your account.' });
+      }
+    }, 80);
+  });
+
+  /* ── Template Download ── */
+  document.getElementById('downloadTemplate').addEventListener('click', () => {
+    const csv = 'date,description,amount,category,paid_by,notes\n06/01/2024,Example Expense,100.00,Groceries,Jane Doe,Sample note';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'shared-expenses-template.csv';
+    a.click(); URL.revokeObjectURL(url);
+    ToastSystem.success({ title: 'Template Downloaded', message: 'shared-expenses-template.csv' });
+  });
+</script>
+</body>
+</html>

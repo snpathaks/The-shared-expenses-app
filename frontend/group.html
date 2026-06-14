@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Groups — Shared Expenses</title>
+  <meta name="description" content="Manage your expense groups — roommates, trips, and more." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .groups-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: var(--space-lg);
+      margin-bottom: var(--space-xl);
+    }
+
+    .group-card {
+      padding: var(--space-lg);
+      cursor: pointer;
+      transition: var(--transition-normal);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .group-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    }
+
+    .group-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+
+    .group-card:nth-child(1)::before { background: linear-gradient(90deg, #7C3AED, #5B21B6); }
+    .group-card:nth-child(2)::before { background: linear-gradient(90deg, #10B981, #059669); }
+    .group-card:nth-child(3)::before { background: linear-gradient(90deg, #F59E0B, #D97706); }
+    .group-card:nth-child(4)::before { background: linear-gradient(90deg, #EF4444, #DC2626); }
+
+    .group-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: var(--space-md);
+    }
+
+    .group-emoji { font-size: 2rem; }
+
+    .group-menu-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      transition: var(--transition-fast);
+    }
+    .group-menu-btn:hover { color: var(--text-secondary); background: var(--bg-card); }
+
+    .group-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .group-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: var(--space-md);
+    }
+
+    .group-stats {
+      display: flex;
+      gap: var(--space-md);
+      margin-bottom: var(--space-md);
+      padding: var(--space-sm) 0;
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .group-stat { flex: 1; text-align: center; }
+    .group-stat-val {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: block;
+    }
+    .group-stat-lbl {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .group-members {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Add Group Card */
+    .add-group-card {
+      padding: var(--space-xl);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-md);
+      border: 2px dashed var(--border-subtle);
+      background: transparent;
+      cursor: pointer;
+      transition: var(--transition-normal);
+      text-align: center;
+      min-height: 240px;
+      border-radius: var(--radius-lg);
+    }
+    .add-group-card:hover {
+      border-color: rgba(124,58,237,0.4);
+      background: rgba(124,58,237,0.05);
+    }
+
+    .add-group-icon {
+      width: 56px; height: 56px;
+      border-radius: var(--radius-full);
+      background: rgba(124,58,237,0.12);
+      border: 1px solid rgba(124,58,237,0.25);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--brand-primary-light);
+      transition: var(--transition-normal);
+    }
+    .add-group-card:hover .add-group-icon {
+      background: rgba(124,58,237,0.2);
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="main-content">
+    <main class="page-content fade-in" id="mainContent" role="main">
+
+      <div class="page-header">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-md)">
+          <div>
+            <h1 class="page-title">Groups</h1>
+            <p class="page-subtitle">Manage your expense groups and roommates</p>
+          </div>
+          <button class="btn btn-primary" id="newGroupBtn" data-modal-open="newGroupModal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+            New Group
+          </button>
+        </div>
+      </div>
+
+      <!-- Groups Grid -->
+      <div class="groups-grid" id="groupsGrid"></div>
+
+    </main>
+  </div>
+</div>
+
+<!-- New Group Modal -->
+<div class="modal-overlay" id="newGroupModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modalTitle">Create New Group</h2>
+      <button class="btn btn-ghost btn-icon" data-modal-close="newGroupModal" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="groupEmoji">Group Emoji</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="emojiPicker">
+          <button type="button" class="btn btn-ghost emoji-opt" style="font-size:1.4rem;padding:8px 12px" aria-label="Home">🏠</button>
+          <button type="button" class="btn btn-ghost emoji-opt" style="font-size:1.4rem;padding:8px 12px" aria-label="Car">🚗</button>
+          <button type="button" class="btn btn-ghost emoji-opt" style="font-size:1.4rem;padding:8px 12px" aria-label="Vacation">🏖️</button>
+          <button type="button" class="btn btn-ghost emoji-opt" style="font-size:1.4rem;padding:8px 12px" aria-label="Food">🍕</button>
+          <button type="button" class="btn btn-ghost emoji-opt" style="font-size:1.4rem;padding:8px 12px" aria-label="Office">💼</button>
+          <button type="button" class="btn btn-ghost emoji-opt" style="font-size:1.4rem;padding:8px 12px" aria-label="Party">🎉</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="groupName">Group Name *</label>
+        <div class="input-wrapper">
+          <input class="form-input" type="text" id="groupName" placeholder="e.g. Apartment 4B" />
+        </div>
+        <span class="form-error" id="groupNameError"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="groupDesc">Description</label>
+        <input class="form-input" type="text" id="groupDesc" placeholder="What is this group for?" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="groupCurrency">Currency</label>
+        <select class="form-input form-select" id="groupCurrency">
+          <option value="USD">USD — US Dollar</option>
+          <option value="EUR">EUR — Euro</option>
+          <option value="GBP">GBP — British Pound</option>
+          <option value="INR">INR — Indian Rupee</option>
+          <option value="CAD">CAD — Canadian Dollar</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-modal-close="newGroupModal">Cancel</button>
+      <button class="btn btn-primary" id="createGroupBtn">Create Group</button>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script src="_sidebar.js"></script>
+<script>
+  renderShell({ title: 'Groups', subtitle: 'Your expense groups' });
+
+  /* ── Sample Groups Data ── */
+  const groups = [
+    {
+      emoji: '🏠',
+      name: 'Apartment 4B',
+      desc: 'Monthly shared apartment costs',
+      total: 2840,
+      expenses: 18,
+      members: ['Alex K', 'Sam R', 'Maya P'],
+      yourBalance: -42.50,
+    },
+    {
+      emoji: '🚗',
+      name: 'Road Trip 2024',
+      desc: 'Cross-country trip expenses',
+      total: 1250,
+      expenses: 9,
+      members: ['Tom W', 'Chris L'],
+      yourBalance: +35.00,
+    },
+    {
+      emoji: '🍕',
+      name: 'Dinner Club',
+      desc: 'Weekly dinner outings',
+      total: 680,
+      expenses: 24,
+      members: ['Sam R', 'Maya P', 'Tom W', 'Chris L'],
+      yourBalance: +50.00,
+    },
+    {
+      emoji: '🏖️',
+      name: 'Beach Vacation',
+      desc: 'Summer beach house rental',
+      total: 3400,
+      expenses: 12,
+      members: ['Alex K', 'Tom W'],
+      yourBalance: 0,
+    },
+  ];
+
+  const grid = document.getElementById('groupsGrid');
+
+  groups.forEach(g => {
+    const card = document.createElement('div');
+    card.className = 'glass-card group-card';
+
+    const balText = g.yourBalance === 0
+      ? '<span style="color:var(--text-muted)">Settled ✓</span>'
+      : g.yourBalance > 0
+        ? `<span class="amount-owed">+${formatCurrency(g.yourBalance)}</span>`
+        : `<span class="amount-owe">${formatCurrency(g.yourBalance)}</span>`;
+
+    const avatarsHTML = g.members.slice(0, 3).map((m, i) =>
+      `<div class="avatar" style="background:${['#7C3AED','#10B981','#F59E0B','#EF4444'][i%4]}">${getInitials(m)}</div>`
+    ).join('') + (g.members.length > 3 ? `<div class="avatar" style="background:var(--bg-card);color:var(--text-muted);font-size:0.65rem">+${g.members.length-3}</div>` : '');
+
+    card.innerHTML = `
+      <div class="group-header">
+        <div class="group-emoji">${g.emoji}</div>
+        <button class="group-menu-btn" aria-label="Group options">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="group-name">${g.name}</div>
+      <div class="group-desc">${g.desc}</div>
+      <div class="group-stats">
+        <div class="group-stat">
+          <span class="group-stat-val">${formatCurrency(g.total)}</span>
+          <span class="group-stat-lbl">Total</span>
+        </div>
+        <div class="group-stat">
+          <span class="group-stat-val">${g.expenses}</span>
+          <span class="group-stat-lbl">Expenses</span>
+        </div>
+        <div class="group-stat">
+          <span class="group-stat-val">${g.members.length + 1}</span>
+          <span class="group-stat-lbl">Members</span>
+        </div>
+      </div>
+      <div class="group-members">
+        <div class="avatar-group">${avatarsHTML}</div>
+        <div style="font-size:0.8rem;font-weight:600">${balText}</div>
+      </div>
+    `;
+
+    card.addEventListener('click', () => {
+      ToastSystem.info({ title: g.name, message: `Opening group details…` });
+    });
+
+    grid.appendChild(card);
+  });
+
+  /* Add New card */
+  const addCard = document.createElement('button');
+  addCard.className = 'add-group-card';
+  addCard.setAttribute('data-modal-open', 'newGroupModal');
+  addCard.innerHTML = `
+    <div class="add-group-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+    </div>
+    <div style="font-size:0.9rem;font-weight:600;color:var(--text-secondary)">Create New Group</div>
+    <div style="font-size:0.78rem;color:var(--text-muted)">Start splitting expenses with friends</div>
+  `;
+  grid.appendChild(addCard);
+
+  /* ── Emoji Picker ── */
+  let selectedEmoji = '🏠';
+  document.querySelectorAll('.emoji-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.emoji-opt').forEach(b => b.classList.remove('btn-primary'));
+      btn.classList.add('btn-primary');
+      selectedEmoji = btn.textContent.trim();
+    });
+  });
+
+  /* ── Create Group ── */
+  document.getElementById('createGroupBtn').addEventListener('click', () => {
+    const name = document.getElementById('groupName').value.trim();
+    if (!name) {
+      Validator.showError(document.getElementById('groupName'), 'Group name is required');
+      return;
+    }
+    ModalSystem.close('newGroupModal');
+    ToastSystem.success({ title: 'Group Created!', message: `"${selectedEmoji} ${name}" is ready to use.` });
+    document.getElementById('groupName').value = '';
+    document.getElementById('groupDesc').value = '';
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Members — Shared Expenses</title>
+  <meta name="description" content="View and manage all members across your expense groups." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .members-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--space-lg);
+    }
+
+    .member-card {
+      padding: var(--space-lg);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+      transition: var(--transition-normal);
+      cursor: pointer;
+    }
+    .member-card:hover { transform: translateY(-2px); }
+
+    .member-card-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .member-avatar-lg {
+      width: 52px; height: 52px;
+      border-radius: var(--radius-full);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #fff;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+
+    .member-info { flex: 1; }
+    .member-name { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+    .member-email { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .member-role { font-size: 0.7rem; }
+
+    .member-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 4px;
+      background: var(--bg-card);
+      border-radius: var(--radius-md);
+      padding: var(--space-sm);
+    }
+
+    .member-stat { text-align: center; padding: 6px 4px; }
+    .member-stat-val { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); display: block; }
+    .member-stat-lbl { font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+    .member-groups {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .member-card-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* Invite area */
+    .invite-card {
+      background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(16,185,129,0.04));
+      border: 1px dashed rgba(124,58,237,0.3);
+      border-radius: var(--radius-lg);
+      padding: var(--space-xl);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-md);
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition-normal);
+    }
+    .invite-card:hover {
+      border-color: rgba(124,58,237,0.5);
+      background: rgba(124,58,237,0.10);
+    }
+
+    .activity-spark {
+      width: 100%;
+      height: 30px;
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+    }
+    .spark-bar {
+      flex: 1;
+      border-radius: 2px;
+      background: rgba(124,58,237,0.3);
+      min-width: 4px;
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="main-content">
+    <main class="page-content fade-in" role="main">
+
+      <div class="page-header">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-md)">
+          <div>
+            <h1 class="page-title">Members</h1>
+            <p class="page-subtitle">All people in your expense groups</p>
+          </div>
+          <div style="display:flex;gap:8px">
+            <div class="search-wrapper">
+              <span class="search-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </span>
+              <input class="form-input search-input" type="search" id="memberSearch" placeholder="Search members…" aria-label="Search members" />
+            </div>
+            <button class="btn btn-primary" data-modal-open="inviteModal">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+              Invite Member
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" style="margin-bottom:var(--space-xl)">
+        <div class="glass-card stat-card">
+          <div class="stat-header"><span class="stat-label">Total Members</span></div>
+          <div class="stat-value">12</div>
+          <div class="stat-change" style="color:var(--text-muted)">Across 4 groups</div>
+        </div>
+        <div class="glass-card stat-card">
+          <div class="stat-header"><span class="stat-label">Active This Month</span></div>
+          <div class="stat-value" style="color:var(--brand-secondary)">8</div>
+          <div class="stat-change" style="color:var(--text-muted)">67% activity rate</div>
+        </div>
+        <div class="glass-card stat-card">
+          <div class="stat-header"><span class="stat-label">Pending Invites</span></div>
+          <div class="stat-value" style="color:var(--brand-accent)">2</div>
+          <div class="stat-change" style="color:var(--text-muted)">Awaiting response</div>
+        </div>
+      </div>
+
+      <!-- Members Grid -->
+      <div class="members-grid" id="membersGrid"></div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Invite Modal -->
+<div class="modal-overlay" id="inviteModal" role="dialog" aria-modal="true" aria-labelledby="inviteTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="inviteTitle">Invite a Member</h2>
+      <button class="btn btn-ghost btn-icon" data-modal-close="inviteModal" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="inviteEmail">Email Address *</label>
+        <div class="input-wrapper">
+          <span class="input-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          </span>
+          <input class="form-input has-icon" type="email" id="inviteEmail" placeholder="friend@example.com" />
+        </div>
+        <span class="form-error" id="inviteEmailError"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="inviteGroup">Add to Group</label>
+        <select class="form-input form-select" id="inviteGroup">
+          <option>🏠 Apartment 4B</option>
+          <option>🚗 Road Trip 2024</option>
+          <option>🍕 Dinner Club</option>
+          <option>🏖️ Beach Vacation</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="inviteRole">Role</label>
+        <select class="form-input form-select" id="inviteRole">
+          <option>Member</option>
+          <option>Admin</option>
+        </select>
+      </div>
+      <div class="glass-card" style="padding:12px;background:rgba(16,185,129,0.06);border-color:rgba(16,185,129,0.2)">
+        <p style="font-size:0.8rem;color:var(--text-secondary)">
+          📨 An invitation email will be sent with a link to join the group.
+        </p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-modal-close="inviteModal">Cancel</button>
+      <button class="btn btn-primary" id="sendInviteBtn">Send Invite</button>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script src="_sidebar.js"></script>
+<script>
+  renderShell({ title: 'Members', subtitle: 'Manage your group members' });
+
+  const members = [
+    { name:'Jane Doe',    email:'jane@example.com',  role:'Admin',  groups:['🏠','🚗','🍕','🏖️'], paid:1248, owes:42.50,  owed:0,     color:'#7C3AED', you:true  },
+    { name:'Alex Kim',    email:'alex@example.com',  role:'Member', groups:['🏠','🚗'],            paid:870,  owes:0,      owed:35,    color:'#10B981', you:false },
+    { name:'Sam Rivera',  email:'sam@example.com',   role:'Member', groups:['🏠','🍕'],            paid:650,  owes:0,      owed:50,    color:'#3B82F6', you:false },
+    { name:'Maya Patel',  email:'maya@example.com',  role:'Member', groups:['🏠','🍕'],            paid:430,  owes:42.50,  owed:0,     color:'#F59E0B', you:false },
+    { name:'Tom Walsh',   email:'tom@example.com',   role:'Member', groups:['🏠','🏖️'],            paid:580,  owes:85,     owed:0,     color:'#EF4444', you:false },
+    { name:'Chris Lee',   email:'chris@example.com', role:'Member', groups:['🚗'],                paid:320,  owes:0,      owed:0,     color:'#EC4899', you:false },
+  ];
+
+  const grid = document.getElementById('membersGrid');
+
+  function renderMembers(filter = '') {
+    grid.innerHTML = '';
+    members
+      .filter(m => m.name.toLowerCase().includes(filter) || m.email.toLowerCase().includes(filter))
+      .forEach(m => {
+        const card = document.createElement('div');
+        card.className = 'glass-card member-card';
+
+        const balColor = m.owes > 0 ? 'var(--brand-danger)' : m.owed > 0 ? 'var(--brand-secondary)' : 'var(--text-muted)';
+        const balText  = m.owes > 0 ? `-${formatCurrency(m.owes)}` : m.owed > 0 ? `+${formatCurrency(m.owed)}` : 'Settled';
+
+        /* Sparkline */
+        const sparks = Array.from({length:7}, () => Math.random() * 100);
+        const sparkHTML = sparks.map(h =>
+          `<div class="spark-bar" style="height:${Math.max(4,h * 0.28)}px;background:${m.color}55"></div>`
+        ).join('');
+
+        card.innerHTML = `
+          <div class="member-card-header">
+            <div class="member-avatar-lg" style="background:${m.color}">${getInitials(m.name)}</div>
+            <div class="member-info">
+              <div class="member-name">${m.name}${m.you ? ' <span style="font-size:0.65rem;background:rgba(124,58,237,0.2);color:#A78BFA;padding:1px 6px;border-radius:3px;font-weight:600">YOU</span>' : ''}</div>
+              <div class="member-email">${m.email}</div>
+              <span class="badge ${m.role === 'Admin' ? 'badge-primary' : 'badge-neutral'} member-role" style="margin-top:4px">${m.role}</span>
+            </div>
+          </div>
+
+          <div class="member-stats">
+            <div class="member-stat">
+              <span class="member-stat-val">${formatCurrency(m.paid)}</span>
+              <span class="member-stat-lbl">Paid</span>
+            </div>
+            <div class="member-stat">
+              <span class="member-stat-val" style="color:${balColor}">${balText}</span>
+              <span class="member-stat-lbl">Balance</span>
+            </div>
+            <div class="member-stat">
+              <span class="member-stat-val">${m.groups.length}</span>
+              <span class="member-stat-lbl">Groups</span>
+            </div>
+          </div>
+
+          <div class="activity-spark">${sparkHTML}</div>
+
+          <div class="member-groups">
+            ${m.groups.map(g => `<span style="font-size:1rem">${g}</span>`).join('')}
+          </div>
+
+          ${!m.you ? `
+          <div class="member-card-actions">
+            <button class="btn btn-ghost btn-sm" style="flex:1" onclick="ToastSystem.info({title:'Message',message:'Messaging ${m.name}…'})">Message</button>
+            ${m.owes > 0 ? `<button class="btn btn-success btn-sm" style="flex:1">Request</button>` :
+              m.owed > 0 ? `<button class="btn btn-danger btn-sm" style="flex:1">Pay</button>` :
+              `<button class="btn btn-ghost btn-sm" style="flex:1" disabled>Settled ✓</button>`}
+          </div>` : ''}
+        `;
+        grid.appendChild(card);
+      });
+  }
+
+  renderMembers();
+
+  /* Search */
+  document.getElementById('memberSearch').addEventListener('input', debounce(e => {
+    renderMembers(e.target.value.toLowerCase());
+  }, 300));
+
+  /* Invite */
+  document.getElementById('sendInviteBtn').addEventListener('click', () => {
+    const email = document.getElementById('inviteEmail');
+    const err = Validator.run(email.value, [Validator.required, Validator.email]);
+    if (err) { Validator.showError(email, err); return; }
+    ModalSystem.close('inviteModal');
+    ToastSystem.success({ title: 'Invite Sent!', message: `Invitation sent to ${email.value}` });
+    email.value = '';
+  });
+</script>
+</body>
+</html>

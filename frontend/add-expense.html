@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add Expense — Shared Expenses</title>
+  <meta name="description" content="Record a new shared expense and split it among group members." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .add-expense-layout {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: var(--space-xl);
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .add-expense-layout { grid-template-columns: 1fr; }
+    }
+
+    .form-card { padding: var(--space-xl); }
+
+    .split-preview {
+      padding: var(--space-lg);
+      position: sticky;
+      top: calc(var(--topbar-height) + var(--space-lg));
+    }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .category-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 6px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-input);
+      cursor: pointer;
+      transition: var(--transition-fast);
+      font-family: inherit;
+    }
+
+    .category-btn:hover {
+      border-color: rgba(124,58,237,0.3);
+      background: rgba(124,58,237,0.07);
+    }
+
+    .category-btn.selected {
+      border-color: var(--brand-primary);
+      background: rgba(124,58,237,0.15);
+      box-shadow: 0 0 0 2px rgba(124,58,237,0.2);
+    }
+
+    .cat-icon { font-size: 1.3rem; }
+    .cat-label { font-size: 0.65rem; font-weight: 500; color: var(--text-muted); }
+    .category-btn.selected .cat-label { color: var(--text-accent); }
+
+    .split-type-tabs {
+      display: flex;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .split-tab {
+      flex: 1;
+      padding: 9px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: var(--transition-fast);
+      border-right: 1px solid var(--border-subtle);
+    }
+    .split-tab:last-child { border-right: none; }
+    .split-tab.active {
+      background: rgba(124,58,237,0.15);
+      color: var(--text-accent);
+    }
+
+    .member-split-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .member-split-row:last-child { border-bottom: none; }
+
+    .split-input {
+      width: 80px;
+      text-align: right;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+    }
+
+    .split-check input[type="checkbox"] { margin: 0; }
+
+    /* Amount display */
+    .amount-display {
+      text-align: center;
+      padding: var(--space-lg) 0;
+    }
+    .amount-big {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums;
+      font-family: var(--font-mono);
+    }
+    .amount-currency {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      vertical-align: super;
+      font-weight: 600;
+    }
+
+    .preview-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .preview-row:last-child { border-bottom: none; }
+    .preview-name { font-size: 0.85rem; color: var(--text-secondary); }
+    .preview-share { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
+
+    .payer-select-wrap { position: relative; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="main-content">
+    <main class="page-content fade-in" role="main">
+
+      <div class="page-header">
+        <h1 class="page-title">Add Expense</h1>
+        <p class="page-subtitle">Record a new expense and split it with your group</p>
+      </div>
+
+      <div class="add-expense-layout">
+
+        <!-- Left — Main Form -->
+        <div class="glass-card form-card">
+          <form id="expenseForm" novalidate>
+
+            <!-- Description -->
+            <div class="form-group" style="margin-bottom:var(--space-lg)">
+              <label class="form-label" for="expDesc">Description *</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </span>
+                <input class="form-input has-icon" type="text" id="expDesc" placeholder="e.g. Grocery run, Electric bill…" aria-required="true" />
+              </div>
+              <span class="form-error" id="expDescError"></span>
+            </div>
+
+            <!-- Amount -->
+            <div class="form-group" style="margin-bottom:var(--space-lg)">
+              <label class="form-label" for="expAmount">Amount *</label>
+              <div class="input-wrapper">
+                <span class="input-icon" style="font-size:0.9rem;font-weight:600;color:var(--text-secondary)">$</span>
+                <input class="form-input has-icon" type="number" id="expAmount" placeholder="0.00" min="0.01" step="0.01" aria-required="true" style="font-family:var(--font-mono);font-size:1rem" />
+              </div>
+              <span class="form-error" id="expAmountError"></span>
+            </div>
+
+            <!-- Category -->
+            <div class="form-group" style="margin-bottom:var(--space-lg)">
+              <label class="form-label">Category</label>
+              <div class="category-grid" id="categoryGrid"></div>
+            </div>
+
+            <!-- Date + Group -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-md);margin-bottom:var(--space-lg)">
+              <div class="form-group">
+                <label class="form-label" for="expDate">Date *</label>
+                <input class="form-input" type="date" id="expDate" aria-required="true" />
+                <span class="form-error" id="expDateError"></span>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="expGroup">Group *</label>
+                <select class="form-input form-select" id="expGroup">
+                  <option value="">Select group…</option>
+                  <option value="apt">🏠 Apartment 4B</option>
+                  <option value="trip">🚗 Road Trip 2024</option>
+                  <option value="dinner">🍕 Dinner Club</option>
+                  <option value="beach">🏖️ Beach Vacation</option>
+                </select>
+                <span class="form-error" id="expGroupError"></span>
+              </div>
+            </div>
+
+            <!-- Paid By -->
+            <div class="form-group" style="margin-bottom:var(--space-lg)">
+              <label class="form-label" for="expPayer">Paid By *</label>
+              <select class="form-input form-select" id="expPayer">
+                <option value="you">You (Jane Doe)</option>
+                <option value="alex">Alex Kim</option>
+                <option value="sam">Sam Rivera</option>
+                <option value="maya">Maya Patel</option>
+                <option value="tom">Tom Walsh</option>
+              </select>
+            </div>
+
+            <!-- Notes -->
+            <div class="form-group" style="margin-bottom:var(--space-xl)">
+              <label class="form-label" for="expNotes">Notes (optional)</label>
+              <textarea class="form-input form-textarea" id="expNotes" placeholder="Any extra details about this expense…" rows="3"></textarea>
+            </div>
+
+            <!-- Split Type -->
+            <div style="margin-bottom:var(--space-lg)">
+              <label class="form-label" style="margin-bottom:8px;display:block">Split Type</label>
+              <div class="split-type-tabs" role="tablist">
+                <button type="button" class="split-tab active" data-split="equal" role="tab" aria-selected="true">Equal</button>
+                <button type="button" class="split-tab" data-split="percentage" role="tab" aria-selected="false">%</button>
+                <button type="button" class="split-tab" data-split="exact" role="tab" aria-selected="false">Exact</button>
+                <button type="button" class="split-tab" data-split="shares" role="tab" aria-selected="false">Shares</button>
+              </div>
+            </div>
+
+            <!-- Members Split -->
+            <div style="margin-bottom:var(--space-xl)" id="memberSplits"></div>
+
+            <!-- Submit -->
+            <div style="display:flex;gap:var(--space-sm)">
+              <button type="submit" class="btn btn-primary btn-lg" id="saveExpBtn" style="flex:1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17,21 17,13 7,13"/><polyline points="7,3 7,8 15,8"/></svg>
+                <span class="btn-text">Save Expense</span>
+                <span class="spinner"></span>
+              </button>
+              <button type="button" class="btn btn-ghost btn-lg" onclick="document.getElementById('expenseForm').reset()">Clear</button>
+            </div>
+
+          </form>
+        </div>
+
+        <!-- Right — Split Preview -->
+        <div class="glass-card split-preview">
+          <div class="section-title" style="margin-bottom:var(--space-sm)">Split Preview</div>
+          <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:var(--space-lg)">How the amount will be divided</p>
+
+          <div class="amount-display">
+            <span class="amount-currency">$</span>
+            <span class="amount-big" id="previewAmount">0.00</span>
+          </div>
+
+          <div id="splitPreview" style="margin-top:var(--space-md)"></div>
+
+          <div style="margin-top:var(--space-lg);padding-top:var(--space-md);border-top:1px solid var(--border-subtle)">
+            <div style="display:flex;justify-content:space-between;font-size:0.8rem">
+              <span style="color:var(--text-muted)">Total members</span>
+              <span id="memberCount" style="color:var(--text-primary);font-weight:600">5</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-top:6px">
+              <span style="color:var(--text-muted)">Each pays</span>
+              <span id="eachPays" style="color:var(--brand-secondary);font-weight:600">$0.00</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script src="_sidebar.js"></script>
+<script>
+  renderShell({ title: 'Add Expense', subtitle: 'Record and split a new expense' });
+
+  /* ── Set today's date ── */
+  document.getElementById('expDate').valueAsDate = new Date();
+
+  /* ── Categories ── */
+  const categories = [
+    { icon: '🛒', label: 'Groceries'  },
+    { icon: '🏠', label: 'Rent'       },
+    { icon: '⚡', label: 'Utilities'  },
+    { icon: '🍕', label: 'Food'       },
+    { icon: '🚗', label: 'Transport'  },
+    { icon: '🎬', label: 'Entertain.' },
+    { icon: '💊', label: 'Health'     },
+    { icon: '📦', label: 'Other'      },
+  ];
+
+  let selectedCategory = 'Groceries';
+  const catGrid = document.getElementById('categoryGrid');
+
+  categories.forEach(c => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'category-btn' + (c.label === selectedCategory ? ' selected' : '');
+    btn.innerHTML = `<span class="cat-icon">${c.icon}</span><span class="cat-label">${c.label}</span>`;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedCategory = c.label;
+    });
+    catGrid.appendChild(btn);
+  });
+
+  /* ── Members ── */
+  const members = [
+    { id: 'you',  name: 'Jane Doe (You)' },
+    { id: 'alex', name: 'Alex Kim'       },
+    { id: 'sam',  name: 'Sam Rivera'     },
+    { id: 'maya', name: 'Maya Patel'     },
+    { id: 'tom',  name: 'Tom Walsh'      },
+  ];
+
+  const memberColors = ['#7C3AED','#10B981','#F59E0B','#EF4444','#3B82F6'];
+
+  let splitType = 'equal';
+  const splitsEl = document.getElementById('memberSplits');
+  const previewEl = document.getElementById('splitPreview');
+
+  function renderSplits() {
+    splitsEl.innerHTML = '';
+    members.forEach((m, i) => {
+      const row = document.createElement('div');
+      row.className = 'member-split-row';
+
+      const inputHtml = splitType === 'equal'
+        ? `<span style="font-size:0.8rem;color:var(--text-muted);font-family:var(--font-mono)" id="share_${m.id}">—</span>`
+        : `<input type="number" class="form-input split-input" id="share_${m.id}" value="${splitType === 'percentage' ? 20 : ''}" min="0" />`;
+
+      row.innerHTML = `
+        <label class="split-check checkbox-wrapper" style="gap:0">
+          <input type="checkbox" checked id="chk_${m.id}" />
+        </label>
+        <div class="user-avatar" style="background:${memberColors[i]};width:28px;height:28px;font-size:0.65rem">${getInitials(m.name)}</div>
+        <div style="flex:1;font-size:0.875rem;color:var(--text-secondary)">${m.name}</div>
+        ${inputHtml}
+        ${splitType !== 'equal' ? `<span style="font-size:0.75rem;color:var(--text-muted)">${splitType === 'percentage' ? '%' : '$'}</span>` : ''}
+      `;
+      splitsEl.appendChild(row);
+    });
+    updatePreview();
+  }
+
+  function updatePreview() {
+    const amount = parseFloat(document.getElementById('expAmount').value) || 0;
+    const checked = members.filter(m => {
+      const chk = document.getElementById(`chk_${m.id}`);
+      return chk && chk.checked;
+    });
+
+    document.getElementById('previewAmount').textContent = amount.toFixed(2);
+    document.getElementById('memberCount').textContent = checked.length;
+    const each = checked.length > 0 ? amount / checked.length : 0;
+    document.getElementById('eachPays').textContent = formatCurrency(each);
+
+    previewEl.innerHTML = '';
+    checked.forEach((m, i) => {
+      const row = document.createElement('div');
+      row.className = 'preview-row';
+      row.innerHTML = `
+        <span class="preview-name">${m.name}</span>
+        <span class="preview-share">${formatCurrency(each)}</span>
+      `;
+      previewEl.appendChild(row);
+    });
+  }
+
+  /* ── Split Type Tabs ── */
+  document.querySelectorAll('.split-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.split-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected','true');
+      splitType = tab.dataset.split;
+      renderSplits();
+    });
+  });
+
+  renderSplits();
+
+  /* ── Live amount update ── */
+  document.getElementById('expAmount').addEventListener('input', updatePreview);
+
+  /* ── Form Validation ── */
+  document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    let hasError = false;
+
+    const desc   = document.getElementById('expDesc');
+    const amount = document.getElementById('expAmount');
+    const group  = document.getElementById('expGroup');
+    const date   = document.getElementById('expDate');
+
+    const descErr   = Validator.run(desc.value,   [Validator.required]);
+    const amountErr = Validator.run(amount.value,  [Validator.required, Validator.number, Validator.positive]);
+    const groupErr  = Validator.run(group.value,   [Validator.required]);
+    const dateErr   = Validator.run(date.value,    [Validator.required]);
+
+    if (descErr)   { Validator.showError(desc, descErr);     hasError = true; }
+    else             Validator.showSuccess(desc);
+    if (amountErr) { Validator.showError(amount, amountErr); hasError = true; }
+    else             Validator.showSuccess(amount);
+    if (groupErr)  { Validator.showError(group, groupErr);   hasError = true; }
+    else             Validator.showSuccess(group);
+    if (dateErr)   { Validator.showError(date, dateErr);     hasError = true; }
+    else             Validator.showSuccess(date);
+
+    if (hasError) {
+      ToastSystem.error({ title: 'Invalid Form', message: 'Please fill in all required fields.' });
+      return;
+    }
+
+    const btn = document.getElementById('saveExpBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    await new Promise(r => setTimeout(r, 1500));
+
+    btn.classList.remove('loading');
+    btn.disabled = false;
+
+    ToastSystem.success({
+      title: 'Expense Saved!',
+      message: `"${desc.value}" (${formatCurrency(parseFloat(amount.value))}) added successfully.`
+    });
+
+    e.target.reset();
+    document.getElementById('expDate').valueAsDate = new Date();
+    document.getElementById('previewAmount').textContent = '0.00';
+    document.getElementById('eachPays').textContent = '$0.00';
+    previewEl.innerHTML = '';
+    document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('selected'));
+    catGrid.querySelector('.category-btn').classList.add('selected');
+    renderSplits();
+  });
+</script>
+</body>
+</html>

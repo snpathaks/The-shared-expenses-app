@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Import Report — Shared Expenses</title>
+  <meta name="description" content="Detailed report of your most recent CSV import — success, errors, and summaries." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .report-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: var(--space-xl);
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .report-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Import result banner */
+    .result-banner {
+      border-radius: var(--radius-lg);
+      padding: var(--space-xl);
+      display: flex;
+      align-items: center;
+      gap: var(--space-xl);
+      margin-bottom: var(--space-xl);
+      position: relative;
+      overflow: hidden;
+      flex-wrap: wrap;
+      gap: var(--space-lg);
+    }
+
+    .result-banner.success {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.04));
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .result-banner.partial {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.04));
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+
+    .result-icon {
+      font-size: 3rem;
+      flex-shrink: 0;
+    }
+
+    .result-info {
+      flex: 1;
+    }
+
+    .result-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .result-subtitle {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .result-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Donut ring */
+    .donut-container {
+      width: 160px;
+      height: 160px;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .donut-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .donut-val {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: block;
+    }
+
+    .donut-sub {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    /* Row status indicator */
+    .row-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+    }
+
+    .row-ok {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34D399;
+    }
+
+    .row-warn {
+      background: rgba(245, 158, 11, 0.15);
+      color: #FCD34D;
+    }
+
+    .row-err {
+      background: rgba(239, 68, 68, 0.15);
+      color: #F87171;
+    }
+
+    .row-skip {
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--text-muted);
+    }
+
+    /* Category breakdown */
+    .breakdown-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .breakdown-row:last-child {
+      border-bottom: none;
+    }
+
+    .bd-icon {
+      font-size: 1rem;
+      width: 20px;
+      text-align: center;
+    }
+
+    .bd-cat {
+      flex: 1;
+      font-size: 0.83rem;
+      color: var(--text-secondary);
+    }
+
+    .bd-cnt {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .bd-amt {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+    }
+
+    .bd-bar {
+      width: 80px;
+      height: 5px;
+      background: var(--bg-card);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .bd-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--brand-primary);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <div class="main-content">
+      <main class="page-content fade-in" role="main">
+
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-md)">
+            <div>
+              <h1 class="page-title">Import Report</h1>
+              <p class="page-subtitle">Summary of your latest import session</p>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-ghost btn-sm" id="printBtn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 6 2 18 2 18 9" />
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                  <rect width="12" height="8" x="6" y="14" />
+                </svg>
+                Print
+              </button>
+              <button class="btn btn-secondary btn-sm" id="downloadReportBtn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7,10 12,15 17,10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Download PDF
+              </button>
+              <a href="import-csv.html" class="btn btn-primary btn-sm">New Import</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result Banner -->
+        <div class="result-banner partial" id="resultBanner">
+          <div class="result-icon">⚠️</div>
+          <div class="result-info">
+            <div class="result-title">Import Completed with Warnings</div>
+            <p class="result-subtitle">Your file was processed. Most rows imported successfully, but some issues were
+              detected.</p>
+            <div class="result-meta">
+              Imported from: <strong style="color:var(--text-primary)">expenses_june_2024.csv</strong> ·
+              Import time: <strong style="color:var(--text-primary)">2.3s</strong> ·
+              Date: <strong style="color:var(--text-primary)">Jun 14, 2024, 11:42 PM</strong>
+            </div>
+          </div>
+          <!-- Donut Chart -->
+          <div class="donut-container" aria-label="Success rate: 71%">
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="18" />
+              <!-- Success arc -->
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#10B981" stroke-width="18" stroke-dasharray="267 110"
+                stroke-dashoffset="0" transform="rotate(-90 80 80)" stroke-linecap="round" />
+              <!-- Warning arc -->
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#F59E0B" stroke-width="18" stroke-dasharray="38 339"
+                stroke-dashoffset="-267" transform="rotate(-90 80 80)" stroke-linecap="round" />
+              <!-- Error arc -->
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#EF4444" stroke-width="18" stroke-dasharray="20 357"
+                stroke-dashoffset="-305" transform="rotate(-90 80 80)" stroke-linecap="round" />
+            </svg>
+            <div class="donut-label">
+              <span class="donut-val">71%</span>
+              <span class="donut-sub">success</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid" style="margin-bottom:var(--space-xl)">
+          <div class="glass-card stat-card">
+            <div class="stat-header"><span class="stat-label">Total Rows</span></div>
+            <div class="stat-value">42</div>
+            <div class="stat-change" style="color:var(--text-muted)">In source file</div>
+          </div>
+          <div class="glass-card stat-card">
+            <div class="stat-header"><span class="stat-label">Imported</span></div>
+            <div class="stat-value" style="color:var(--brand-secondary)">30</div>
+            <div class="stat-change" style="color:var(--brand-secondary)">✓ 71.4% success</div>
+          </div>
+          <div class="glass-card stat-card">
+            <div class="stat-header"><span class="stat-label">Warnings</span></div>
+            <div class="stat-value" style="color:var(--brand-accent)">9</div>
+            <div class="stat-change" style="color:var(--text-muted)">Partial imports</div>
+          </div>
+          <div class="glass-card stat-card">
+            <div class="stat-header"><span class="stat-label">Errors</span></div>
+            <div class="stat-value" style="color:var(--brand-danger)">3</div>
+            <div class="stat-change" style="color:var(--brand-danger)">→ Action needed</div>
+          </div>
+          <div class="glass-card stat-card">
+            <div class="stat-header"><span class="stat-label">Total Amount</span></div>
+            <div class="stat-value">$3,240</div>
+            <div class="stat-change" style="color:var(--text-muted)">Imported expenses</div>
+          </div>
+        </div>
+
+        <div class="report-layout">
+
+          <!-- Left — Row-by-row log -->
+          <div style="display:flex;flex-direction:column;gap:var(--space-lg)">
+
+            <!-- Legend -->
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:4px">
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-muted)">
+                <span style="width:8px;height:8px;border-radius:50%;background:#10B981;display:inline-block"></span>
+                Imported
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-muted)">
+                <span style="width:8px;height:8px;border-radius:50%;background:#F59E0B;display:inline-block"></span>
+                Warning
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-muted)">
+                <span style="width:8px;height:8px;border-radius:50%;background:#EF4444;display:inline-block"></span>
+                Error
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-muted)">
+                <span
+                  style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);display:inline-block"></span>
+                Skipped
+              </div>
+            </div>
+
+            <!-- Table -->
+            <div class="glass-card">
+              <div
+                style="padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between">
+                <div class="section-title">Row-by-Row Log</div>
+                <div class="search-wrapper">
+                  <span class="search-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2">
+                      <circle cx="11" cy="11" r="8" />
+                      <path d="m21 21-4.35-4.35" />
+                    </svg></span>
+                  <input class="form-input search-input" type="search" id="logSearch" placeholder="Filter rows…"
+                    style="min-width:160px" />
+                </div>
+              </div>
+              <div class="table-container" style="border:none;border-radius:0">
+                <table class="data-table" id="logTable">
+                  <thead>
+                    <tr>
+                      <th>Row</th>
+                      <th>Description</th>
+                      <th>Date</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                      <th>Note</th>
+                    </tr>
+                  </thead>
+                  <tbody id="logBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right Sidebar -->
+          <div style="display:flex;flex-direction:column;gap:var(--space-lg)">
+
+            <!-- Category Breakdown -->
+            <div class="glass-card" style="padding:var(--space-lg)">
+              <div class="section-title" style="margin-bottom:var(--space-md)">Category Breakdown</div>
+              <div id="categoryBreakdown"></div>
+            </div>
+
+            <!-- Actions -->
+            <div class="glass-card" style="padding:var(--space-lg)">
+              <div class="section-title" style="margin-bottom:var(--space-md)">Next Steps</div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <a href="anomalies.html" class="btn btn-warning btn-sm"
+                  style="background:rgba(245,158,11,0.15);color:#FCD34D;border:1px solid rgba(245,158,11,0.3)">
+                  ⚠️ Review 3 Anomalies
+                </a>
+                <button class="btn btn-ghost btn-sm" id="fixErrorsBtn">🔧 Fix 3 Errors</button>
+                <a href="balances.html" class="btn btn-ghost btn-sm">📊 View Updated Balances</a>
+                <a href="import-csv.html" class="btn btn-ghost btn-sm">📥 Import Another File</a>
+              </div>
+            </div>
+
+            <!-- Import Info -->
+            <div class="glass-card" style="padding:var(--space-lg)">
+              <div class="section-title" style="margin-bottom:var(--space-md)">Import Details</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem">
+                  <span style="color:var(--text-muted)">File</span>
+                  <span
+                    style="color:var(--text-primary);font-weight:500;font-family:var(--font-mono);font-size:0.72rem">expenses_june_2024.csv</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem">
+                  <span style="color:var(--text-muted)">Size</span>
+                  <span style="color:var(--text-primary);font-weight:500;font-family:var(--font-mono)">2.4 KB</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem">
+                  <span style="color:var(--text-muted)">Columns</span>
+                  <span style="color:var(--text-primary);font-weight:500">6 mapped</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem">
+                  <span style="color:var(--text-muted)">Group</span>
+                  <span style="color:var(--text-primary);font-weight:500">🏠 Apartment 4B</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem">
+                  <span style="color:var(--text-muted)">Currency</span>
+                  <span style="color:var(--text-primary);font-weight:500">USD</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem">
+                  <span style="color:var(--text-muted)">Duration</span>
+                  <span style="color:var(--text-primary);font-weight:500;font-family:var(--font-mono)">2.3
+                    seconds</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script src="_sidebar.js"></script>
+  <script>
+    renderShell({ title: 'Import Report', subtitle: 'expenses_june_2024.csv' });
+
+    /* ── Log Data ── */
+    const logRows = [
+      { row: 1, desc: 'Grocery Run', date: '06/01/2024', amount: 87.40, status: 'ok', note: 'Imported successfully' },
+      { row: 2, desc: 'Electric Bill', date: '06/03/2024', amount: 132.00, status: 'ok', note: 'Imported successfully' },
+      { row: 3, desc: 'Netflix', date: '06/05/2024', amount: 15.99, status: 'ok', note: 'Imported successfully' },
+      { row: 4, desc: 'Dinner Out', date: '06/07/2024', amount: 64.50, status: 'ok', note: 'Imported successfully' },
+      { row: 5, desc: 'Office Supplies', date: '06/12/2024', amount: 23.50, status: 'warn', note: 'Missing payer field' },
+      { row: 6, desc: 'Security Deposit', date: '06/08/2024', amount: 2500.00, status: 'warn', note: 'Unusual large amount' },
+      { row: 7, desc: 'Grocery Run', date: '06/01/2024', amount: 87.40, status: 'warn', note: 'Possible duplicate of row 1' },
+      { row: 8, desc: '', date: '06/09/2024', amount: null, status: 'err', note: 'Missing description and amount' },
+      { row: 9, desc: 'Rent', date: 'invalid', amount: 600.00, status: 'err', note: 'Invalid date format' },
+      { row: 10, desc: 'Gas', date: '06/11/2024', amount: -25.00, status: 'err', note: 'Negative amount not allowed' },
+      { row: 11, desc: 'Internet', date: '06/10/2024', amount: 59.99, status: 'ok', note: 'Imported successfully' },
+      { row: 12, desc: 'Cleaning Supplies', date: '06/13/2024', amount: 34.20, status: 'ok', note: 'Imported successfully' },
+    ];
+
+    function renderLog(filter = '') {
+      const tbody = document.getElementById('logBody');
+      tbody.innerHTML = '';
+
+      const filtered = filter
+        ? logRows.filter(r => r.desc.toLowerCase().includes(filter) || r.note.toLowerCase().includes(filter) || r.status.includes(filter))
+        : logRows;
+
+      filtered.forEach(r => {
+        const statusClass = r.status === 'ok' ? 'row-ok' : r.status === 'warn' ? 'row-warn' : r.status === 'skip' ? 'row-skip' : 'row-err';
+        const statusLabel = r.status === 'ok' ? '✓ Imported' : r.status === 'warn' ? '⚠ Warning' : r.status === 'skip' ? '— Skipped' : '✕ Error';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+        <td style="color:var(--text-muted);font-family:var(--font-mono)">#${r.row}</td>
+        <td style="color:${r.desc ? 'var(--text-primary)' : 'var(--text-muted)'};font-weight:500">${r.desc || '— empty —'}</td>
+        <td style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted)">${r.date}</td>
+        <td style="font-family:var(--font-mono);font-weight:600;color:${r.amount !== null ? 'var(--text-primary)' : 'var(--text-muted)'}">${r.amount !== null ? formatCurrency(r.amount) : '—'}</td>
+        <td><span class="row-status ${statusClass}">${statusLabel}</span></td>
+        <td style="font-size:0.75rem;color:var(--text-muted)">${r.note}</td>
+      `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    renderLog();
+
+    document.getElementById('logSearch').addEventListener('input', debounce(e => {
+      renderLog(e.target.value.toLowerCase());
+    }, 300));
+
+    /* ── Category Breakdown ── */
+    const categories = [
+      { icon: '🛒', cat: 'Groceries', count: 8, amount: 420.50, pct: 85 },
+      { icon: '🏠', cat: 'Rent/Bills', count: 5, amount: 1320.00, pct: 100 },
+      { icon: '🍕', cat: 'Food', count: 6, amount: 280.75, pct: 70 },
+      { icon: '📡', cat: 'Internet', count: 2, amount: 119.98, pct: 50 },
+      { icon: '🎬', cat: 'Entertainment', count: 3, amount: 47.97, pct: 40 },
+      { icon: '📦', cat: 'Other', count: 6, amount: 251.80, pct: 60 },
+    ];
+
+    const bdEl = document.getElementById('categoryBreakdown');
+    const maxAmt = Math.max(...categories.map(c => c.amount));
+    categories.forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'breakdown-row';
+      row.innerHTML = `
+      <span class="bd-icon">${c.icon}</span>
+      <span class="bd-cat">${c.cat}</span>
+      <span class="bd-cnt">${c.count}x</span>
+      <div class="bd-bar">
+        <div class="bd-fill" style="width:${(c.amount / maxAmt) * 100}%"></div>
+      </div>
+      <span class="bd-amt">${formatCurrency(c.amount)}</span>
+    `;
+      bdEl.appendChild(row);
+    });
+
+    /* ── Action Buttons ── */
+    document.getElementById('printBtn').addEventListener('click', () => window.print());
+    document.getElementById('downloadReportBtn').addEventListener('click', () => {
+      ToastSystem.success({ title: 'Report Downloaded', message: 'import-report-jun14.pdf saved.' });
+    });
+    document.getElementById('fixErrorsBtn').addEventListener('click', () => {
+      ToastSystem.info({ title: 'Error Fixer', message: 'Opening 3 rows with errors for correction…' });
+    });
+  </script>
+</body>
+
+</html>

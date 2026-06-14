@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settlements — Shared Expenses</title>
+  <meta name="description" content="Record and track payment settlements between group members." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .settlements-layout {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: var(--space-xl);
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .settlements-layout { grid-template-columns: 1fr; }
+    }
+
+    /* Settlement Card */
+    .settlement-card {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: var(--space-md);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      transition: var(--transition-fast);
+      cursor: pointer;
+      background: transparent;
+      font-family: inherit;
+      text-align: left;
+      width: 100%;
+    }
+    .settlement-card:hover {
+      border-color: rgba(124,58,237,0.25);
+      background: rgba(124,58,237,0.04);
+    }
+
+    .settle-arrow {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .arrow-icon { color: var(--brand-primary-light); }
+
+    .settle-people {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      flex: 1;
+      flex-wrap: wrap;
+    }
+
+    .settle-person {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .settle-name { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); }
+    .settle-sub  { font-size: 0.75rem; color: var(--text-muted); }
+
+    .settle-amount {
+      font-size: 1.1rem;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+    }
+
+    /* Quick Settle Form */
+    .quick-settle-card { padding: var(--space-xl); }
+
+    .payment-method-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .pm-btn {
+      padding: 10px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--bg-input);
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: var(--transition-fast);
+    }
+    .pm-btn:hover { border-color: rgba(124,58,237,0.3); background: rgba(124,58,237,0.07); }
+    .pm-btn.selected {
+      border-color: var(--brand-primary);
+      background: rgba(124,58,237,0.12);
+    }
+    .pm-icon { font-size: 1.2rem; }
+    .pm-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+    .pm-btn.selected .pm-label { color: var(--text-accent); }
+
+    /* Timeline */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .timeline-item {
+      display: flex;
+      gap: var(--space-md);
+      position: relative;
+    }
+    .timeline-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 16px;
+      top: 36px;
+      bottom: -12px;
+      width: 1px;
+      background: var(--border-subtle);
+    }
+    .timeline-dot {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem;
+    }
+    .timeline-content { flex: 1; padding-bottom: var(--space-lg); }
+    .timeline-title { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); }
+    .timeline-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .timeline-amount { font-size: 0.85rem; font-weight: 700; margin-top: 4px; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="main-content">
+    <main class="page-content fade-in" role="main">
+
+      <div class="page-header">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-md)">
+          <div>
+            <h1 class="page-title">Settlements</h1>
+            <p class="page-subtitle">Record payments and clear your debts</p>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" id="exportBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" style="margin-bottom:var(--space-xl)">
+        <div class="glass-card stat-card">
+          <div class="stat-header">
+            <span class="stat-label">Pending</span>
+            <div class="stat-icon" style="background:rgba(245,158,11,0.12)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FCD34D" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+            </div>
+          </div>
+          <div class="stat-value" style="color:var(--brand-accent)">3</div>
+          <div class="stat-change" style="color:var(--text-muted)">$212.50 total</div>
+        </div>
+        <div class="glass-card stat-card">
+          <div class="stat-header">
+            <span class="stat-label">Completed</span>
+            <div class="stat-icon" style="background:rgba(16,185,129,0.12)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+          </div>
+          <div class="stat-value" style="color:var(--brand-secondary)">7</div>
+          <div class="stat-change" style="color:var(--text-muted)">This month</div>
+        </div>
+        <div class="glass-card stat-card">
+          <div class="stat-header">
+            <span class="stat-label">Total Settled</span>
+            <div class="stat-icon" style="background:rgba(124,58,237,0.12)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+          </div>
+          <div class="stat-value">$940</div>
+          <div class="stat-change" style="color:var(--brand-secondary)">↑ All time</div>
+        </div>
+      </div>
+
+      <div class="settlements-layout">
+
+        <!-- Left — Settlements List -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-lg)">
+
+          <!-- Pending Settlements -->
+          <div class="glass-card" style="padding:var(--space-lg)">
+            <div class="section-header">
+              <div>
+                <div class="section-title">Pending Settlements</div>
+                <div class="section-subtitle">Awaiting payment</div>
+              </div>
+              <span class="badge badge-warning">3 pending</span>
+            </div>
+            <div id="pendingList" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
+          <!-- Completed Settlements -->
+          <div class="glass-card" style="padding:var(--space-lg)">
+            <div class="section-header">
+              <div>
+                <div class="section-title">Completed</div>
+                <div class="section-subtitle">Past settlements</div>
+              </div>
+            </div>
+            <div class="timeline" id="completedTimeline"></div>
+          </div>
+
+        </div>
+
+        <!-- Right — Quick Settle Panel -->
+        <div class="glass-card quick-settle-card" style="position:sticky;top:calc(var(--topbar-height) + var(--space-lg))">
+          <div class="section-title" style="margin-bottom:4px">Record a Settlement</div>
+          <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:var(--space-lg)">Manually record a payment</p>
+
+          <form id="settleForm" style="display:flex;flex-direction:column;gap:var(--space-md)" novalidate>
+
+            <div class="form-group">
+              <label class="form-label" for="fromMember">From</label>
+              <select class="form-input form-select" id="fromMember">
+                <option value="you">You (Jane Doe)</option>
+                <option value="alex">Alex Kim</option>
+                <option value="sam">Sam Rivera</option>
+                <option value="maya">Maya Patel</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="toMember">To</label>
+              <select class="form-input form-select" id="toMember">
+                <option value="maya">Maya Patel</option>
+                <option value="tom">Tom Walsh</option>
+                <option value="alex">Alex Kim</option>
+                <option value="you">You (Jane Doe)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="settleAmount">Amount *</label>
+              <div class="input-wrapper">
+                <span class="input-icon" style="font-weight:600;color:var(--text-secondary)">$</span>
+                <input class="form-input has-icon" type="number" id="settleAmount" placeholder="0.00" min="0.01" step="0.01" />
+              </div>
+              <span class="form-error" id="settleAmtError"></span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Payment Method</label>
+              <div class="payment-method-grid">
+                <button type="button" class="pm-btn selected" data-pm="cash">
+                  <span class="pm-icon">💵</span>
+                  <span class="pm-label">Cash</span>
+                </button>
+                <button type="button" class="pm-btn" data-pm="venmo">
+                  <span class="pm-icon">📱</span>
+                  <span class="pm-label">Venmo</span>
+                </button>
+                <button type="button" class="pm-btn" data-pm="paypal">
+                  <span class="pm-icon">🅿️</span>
+                  <span class="pm-label">PayPal</span>
+                </button>
+                <button type="button" class="pm-btn" data-pm="bank">
+                  <span class="pm-icon">🏦</span>
+                  <span class="pm-label">Bank</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="settleNote">Note (optional)</label>
+              <input class="form-input" type="text" id="settleNote" placeholder="e.g. Venmo sent 6/14" />
+            </div>
+
+            <button type="submit" class="btn btn-success btn-full" id="settleBtn">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+              <span class="btn-text">Record Settlement</span>
+              <span class="spinner"></span>
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script src="_sidebar.js"></script>
+<script>
+  renderShell({ title: 'Settlements', subtitle: 'Record and track payments' });
+
+  /* ── Pending Settlements ── */
+  const pending = [
+    { from: 'You', to: 'Maya Patel',  amount: 42.50, group: '🏠 Apartment 4B', due: 'Due in 2 days' },
+    { from: 'You', to: 'Tom Walsh',   amount: 85.00, group: '🏠 Apartment 4B', due: 'Overdue by 1 day' },
+    { from: 'Alex Kim', to: 'You',    amount: 35.00, group: '🚗 Road Trip',     due: 'Due in 5 days' },
+  ];
+
+  const pendingList = document.getElementById('pendingList');
+  pending.forEach(s => {
+    const isYouPaying = s.from === 'You';
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'settlement-card';
+    card.innerHTML = `
+      <div class="settle-people">
+        <div class="settle-person">
+          <div class="user-avatar" style="background:${isYouPaying ? '#7C3AED' : '#10B981'};width:36px;height:36px;font-size:0.75rem">${getInitials(s.from)}</div>
+          <div>
+            <div class="settle-name">${s.from}</div>
+            <div class="settle-sub">payer</div>
+          </div>
+        </div>
+        <div class="settle-arrow">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <div style="font-size:0.6rem;color:var(--text-muted)">${s.group}</div>
+        </div>
+        <div class="settle-person">
+          <div class="user-avatar" style="background:${isYouPaying ? '#EF4444' : '#7C3AED'};width:36px;height:36px;font-size:0.75rem">${getInitials(s.to)}</div>
+          <div>
+            <div class="settle-name">${s.to}</div>
+            <div class="settle-sub">recipient</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+        <span class="settle-amount" style="color:${isYouPaying ? 'var(--brand-danger)' : 'var(--brand-secondary)'}">${formatCurrency(s.amount)}</span>
+        <span class="badge ${s.due.includes('Overdue') ? 'badge-danger' : 'badge-warning'}" style="font-size:0.6rem">${s.due}</span>
+      </div>
+    `;
+    card.addEventListener('click', () => {
+      document.getElementById('settleAmount').value = s.amount;
+      ToastSystem.info({ title: 'Quick Fill', message: `Amount pre-filled: ${formatCurrency(s.amount)}` });
+    });
+    pendingList.appendChild(card);
+  });
+
+  /* ── Completed Timeline ── */
+  const completed = [
+    { from:'Sam Rivera', to:'You', amount:50.00, date:'Jun 12, 2024', method:'Venmo', color:'#10B981' },
+    { from:'You', to:'Alex Kim', amount:22.00, date:'Jun 10, 2024', method:'Cash', color:'#7C3AED' },
+    { from:'Tom Walsh', to:'You', amount:45.00, date:'Jun 5, 2024',  method:'PayPal', color:'#3B82F6' },
+    { from:'You', to:'Sam Rivera', amount:18.75,date:'Jun 1, 2024',  method:'Bank', color:'#F59E0B' },
+  ];
+
+  const timelineEl = document.getElementById('completedTimeline');
+  completed.forEach(c => {
+    const item = document.createElement('div');
+    item.className = 'timeline-item';
+    item.innerHTML = `
+      <div class="timeline-dot" style="background:${c.color}22;border:1.5px solid ${c.color}">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+      </div>
+      <div class="timeline-content">
+        <div class="timeline-title">${c.from} → ${c.to}</div>
+        <div class="timeline-meta">${c.date} · via ${c.method}</div>
+        <div class="timeline-amount" style="color:var(--brand-secondary)">${formatCurrency(c.amount)}</div>
+      </div>
+      <span class="badge badge-success" style="flex-shrink:0;align-self:flex-start;margin-top:2px">Done</span>
+    `;
+    timelineEl.appendChild(item);
+  });
+
+  /* ── Payment Method Select ── */
+  let selectedPM = 'cash';
+  document.querySelectorAll('.pm-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.pm-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedPM = btn.dataset.pm;
+    });
+  });
+
+  /* ── Settle Form ── */
+  document.getElementById('settleForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const amt = document.getElementById('settleAmount');
+    const err = Validator.run(amt.value, [Validator.required, Validator.number, Validator.positive]);
+    if (err) { Validator.showError(amt, err); return; }
+    Validator.showSuccess(amt);
+
+    const btn = document.getElementById('settleBtn');
+    btn.classList.add('loading'); btn.disabled = true;
+    await new Promise(r => setTimeout(r, 1200));
+    btn.classList.remove('loading'); btn.disabled = false;
+
+    ToastSystem.success({ title: 'Settlement Recorded!', message: `Payment of ${formatCurrency(parseFloat(amt.value))} via ${selectedPM} has been logged.` });
+    e.target.reset();
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    ToastSystem.success({ title: 'Exported!', message: 'Settlement history downloaded as CSV.' });
+  });
+</script>
+</body>
+</html>

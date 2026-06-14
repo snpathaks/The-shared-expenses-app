@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Balances — Shared Expenses</title>
+  <meta name="description" content="View who owes whom across all your expense groups." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .balances-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: var(--space-xl);
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .balances-layout { grid-template-columns: 1fr; }
+    }
+
+    /* Net Balance Card */
+    .net-balance-card {
+      padding: var(--space-xl);
+      text-align: center;
+      background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(16,185,129,0.06));
+    }
+
+    .net-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .net-value {
+      font-size: 2.8rem;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      font-family: var(--font-mono);
+      margin-bottom: 6px;
+    }
+
+    .net-desc { font-size: 0.82rem; color: var(--text-muted); }
+
+    /* Group filter pills */
+    .group-pills {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: var(--space-md);
+    }
+
+    .group-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: var(--transition-fast);
+      border: none;
+      background: none;
+      font-family: inherit;
+      text-align: left;
+      width: 100%;
+    }
+    .group-pill:hover { background: var(--bg-card-hover); }
+    .group-pill.active {
+      background: rgba(124,58,237,0.12);
+      border: 1px solid rgba(124,58,237,0.2);
+    }
+    .group-pill-name { font-size: 0.875rem; font-weight: 500; color: var(--text-secondary); }
+    .group-pill.active .group-pill-name { color: var(--text-primary); }
+    .group-pill-bal { margin-left: auto; font-size: 0.8rem; font-weight: 600; }
+
+    /* Balance Row */
+    .balance-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: var(--space-md);
+      border-radius: var(--radius-md);
+      transition: var(--transition-fast);
+    }
+    .balance-row:hover { background: rgba(255,255,255,0.02); }
+
+    .balance-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      min-width: 100px;
+    }
+    .arrow-line {
+      height: 2px;
+      flex: 1;
+      position: relative;
+    }
+    .arrow-label { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; }
+
+    /* Balance Bar */
+    .balance-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px var(--space-md);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .balance-bar-row:last-child { border-bottom: none; }
+    .bar-person { width: 100px; font-size: 0.8rem; color: var(--text-secondary); flex-shrink: 0; }
+    .bar-track { flex: 1; height: 8px; background: var(--bg-card); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+    .bar-amount { font-size: 0.8rem; font-weight: 600; width: 80px; text-align: right; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="main-content">
+    <main class="page-content fade-in" role="main">
+
+      <div class="page-header">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-md)">
+          <div>
+            <h1 class="page-title">Balances</h1>
+            <p class="page-subtitle">See who owes what across your groups</p>
+          </div>
+          <a href="settlements.html" class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Settle Up
+          </a>
+        </div>
+      </div>
+
+      <div class="balances-layout">
+
+        <!-- Left Sidebar Panel -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-lg)">
+
+          <!-- Net Balance -->
+          <div class="glass-card net-balance-card">
+            <div class="net-label">Your Net Balance</div>
+            <div class="net-value" id="netValue" style="color:var(--brand-danger)">-$42.50</div>
+            <div class="net-desc">You owe <strong>$42.50</strong> overall</div>
+          </div>
+
+          <!-- Group Filter -->
+          <div class="glass-card" style="padding:var(--space-lg)">
+            <div class="section-title" style="margin-bottom:var(--space-sm)">Filter by Group</div>
+            <div class="group-pills" id="groupPills"></div>
+          </div>
+
+        </div>
+
+        <!-- Right — Balance Details -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-lg)">
+
+          <!-- Overview Bars -->
+          <div class="glass-card" style="padding:var(--space-lg)">
+            <div class="section-header">
+              <div>
+                <div class="section-title">Balance Overview</div>
+                <div class="section-subtitle">Relative balance per member</div>
+              </div>
+            </div>
+            <div id="balanceBars" style="margin-top:var(--space-md)"></div>
+          </div>
+
+          <!-- Detailed Balances Table -->
+          <div class="glass-card" style="padding:var(--space-lg)">
+            <div class="section-header">
+              <div>
+                <div class="section-title">Detailed Balances</div>
+                <div class="section-subtitle" id="activeGroupName">All Groups</div>
+              </div>
+              <div class="tabs">
+                <button class="tab active" data-filter="all">All</button>
+                <button class="tab" data-filter="owe">I Owe</button>
+                <button class="tab" data-filter="owed">Owed to Me</button>
+              </div>
+            </div>
+
+            <div class="table-container">
+              <table class="data-table" id="balancesTable">
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th>Group</th>
+                    <th>Last Expense</th>
+                    <th style="text-align:right">Balance</th>
+                    <th style="text-align:right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="balancesBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script src="_sidebar.js"></script>
+<script>
+  renderShell({ title: 'Balances', subtitle: 'Financial overview across groups' });
+
+  /* ── Data ── */
+  const groups = [
+    { id: 'all',    emoji: '📊', name: 'All Groups',    balance: -42.50 },
+    { id: 'apt',    emoji: '🏠', name: 'Apartment 4B', balance: -85.00 },
+    { id: 'trip',   emoji: '🚗', name: 'Road Trip',    balance: +35.00 },
+    { id: 'dinner', emoji: '🍕', name: 'Dinner Club',  balance: +50.00 },
+    { id: 'beach',  emoji: '🏖️', name: 'Beach Vacation', balance: 0   },
+  ];
+
+  const balances = [
+    { person: 'Alex Kim',   group: '🏠 Apartment 4B', last: '2d ago',  amount: +35.00,  type: 'owed' },
+    { person: 'Sam Rivera', group: '🍕 Dinner Club',  last: '3d ago',  amount: +50.00,  type: 'owed' },
+    { person: 'Maya Patel', group: '🏠 Apartment 4B', last: '1d ago',  amount: -42.50,  type: 'owe'  },
+    { person: 'Tom Walsh',  group: '🏠 Apartment 4B', last: '5d ago',  amount: -85.00,  type: 'owe'  },
+    { person: 'Chris Lee',  group: '🚗 Road Trip',    last: '1wk ago', amount: 0,       type: 'settled'},
+  ];
+
+  const memberColors = { 'Alex Kim':'#10B981','Sam Rivera':'#3B82F6','Maya Patel':'#F59E0B','Tom Walsh':'#EF4444','Chris Lee':'#7C3AED' };
+
+  /* ── Group Pills ── */
+  let activeGroup = 'all';
+  const pillsEl = document.getElementById('groupPills');
+
+  groups.forEach(g => {
+    const btn = document.createElement('button');
+    btn.className = 'group-pill' + (g.id === 'all' ? ' active' : '');
+    btn.dataset.group = g.id;
+    const balColor = g.balance > 0 ? 'var(--brand-secondary)' : g.balance < 0 ? 'var(--brand-danger)' : 'var(--text-muted)';
+    btn.innerHTML = `
+      <span style="font-size:1rem">${g.emoji}</span>
+      <span class="group-pill-name">${g.name}</span>
+      <span class="group-pill-bal" style="color:${balColor}">${g.balance === 0 ? '✓' : (g.balance > 0 ? '+' : '') + formatCurrency(g.balance)}</span>
+    `;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.group-pill').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      activeGroup = g.id;
+      document.getElementById('activeGroupName').textContent = g.name;
+    });
+    pillsEl.appendChild(btn);
+  });
+
+  /* ── Balance Bars ── */
+  const maxAbs = Math.max(...balances.map(b => Math.abs(b.amount)));
+  const barsEl = document.getElementById('balanceBars');
+
+  balances.forEach(b => {
+    const pct = maxAbs > 0 ? Math.abs(b.amount / maxAbs) * 100 : 0;
+    const color = b.type === 'owed' ? 'var(--brand-secondary)' : b.type === 'owe' ? 'var(--brand-danger)' : 'var(--text-muted)';
+    const row = document.createElement('div');
+    row.className = 'balance-bar-row';
+    row.innerHTML = `
+      <div class="bar-person">${b.person.split(' ')[0]}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <div class="bar-amount" style="color:${color}">
+        ${b.amount === 0 ? 'Settled' : (b.amount > 0 ? '+' : '') + formatCurrency(b.amount)}
+      </div>
+    `;
+    barsEl.appendChild(row);
+  });
+
+  /* ── Table ── */
+  let currentFilter = 'all';
+  const tbody = document.getElementById('balancesBody');
+
+  function renderTable() {
+    const filtered = currentFilter === 'all'
+      ? balances
+      : balances.filter(b => b.type === currentFilter);
+
+    tbody.innerHTML = '';
+    filtered.forEach(b => {
+      const amtColor = b.type === 'owed' ? 'var(--brand-secondary)' : b.type === 'owe' ? 'var(--brand-danger)' : 'var(--text-muted)';
+      const amtText  = b.amount === 0 ? 'Settled' : (b.amount > 0 ? '+' : '') + formatCurrency(b.amount);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="avatar" style="background:${memberColors[b.person]||'#7C3AED'};width:30px;height:30px;font-size:0.65rem;margin-left:0">${getInitials(b.person)}</div>
+            <span style="font-weight:500;color:var(--text-primary)">${b.person}</span>
+          </div>
+        </td>
+        <td>${b.group}</td>
+        <td style="color:var(--text-muted);font-size:0.8rem">${b.last}</td>
+        <td style="text-align:right">
+          <span style="font-weight:700;color:${amtColor}">${amtText}</span>
+        </td>
+        <td style="text-align:right">
+          ${b.type !== 'settled'
+            ? `<button class="btn btn-sm ${b.type === 'owe' ? 'btn-danger' : 'btn-success'}" onclick="ToastSystem.info({title:'Settle Up',message:'Opening settlement with ${b.person}…'})">
+                ${b.type === 'owe' ? 'Pay' : 'Request'}
+              </button>`
+            : `<span class="badge badge-success">✓ Settled</span>`}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.querySelectorAll('.tab[data-filter]').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab[data-filter]').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentFilter = tab.dataset.filter;
+      renderTable();
+    });
+  });
+
+  renderTable();
+</script>
+</body>
+</html>
